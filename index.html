@@ -1,0 +1,229 @@
+<!doctype html>
+<html lang="ca">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <title>Registre ZOO · AstroMallorca</title>
+  <meta name="theme-color" content="#08111f">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Registre ZOO">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icons/icon-192.png">
+  <link rel="apple-touch-icon" href="icons/icon-192.png">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="app-shell">
+    <header class="hero">
+      <div class="brand">ASTROMALLORCA</div>
+      <h1>Registre ZOO</h1>
+      <p class="subtitle">Recollida de dades per a zones candidates d’observació</p>
+    </header>
+
+    <main id="app"></main>
+  </div>
+
+  <template id="tpl-home">
+    <section class="card stack-lg">
+      <button class="primary nav" data-view="new-record">Registrar ZOO</button>
+      <button class="secondary nav" data-view="drafts">Editar ZOO</button>
+      <button class="secondary nav" data-view="sent">Enviats</button>
+      <div class="row-2">
+        <button class="ghost" id="btn-sync-pending">Enviar pendents</button>
+        <button class="ghost" id="btn-help">Ajuda</button>
+      </div>
+      <div class="info-banner">
+        <strong>Estat:</strong> <span id="home-stats"></span>
+      </div>
+    </section>
+  </template>
+
+  <template id="tpl-list">
+    <section class="card stack-md">
+      <div class="section-head">
+        <button class="icon-btn back-home">←</button>
+        <h2 id="list-title"></h2>
+      </div>
+      <div id="list-container" class="stack-sm"></div>
+    </section>
+  </template>
+
+  <template id="tpl-editor">
+    <section class="card stack-md">
+      <div class="section-head">
+        <button class="icon-btn" id="editor-back">←</button>
+        <div>
+          <h2 id="editor-title">Registrar ZOO</h2>
+          <p class="tiny" id="editor-meta"></p>
+        </div>
+      </div>
+
+      <div class="step-tabs">
+        <button class="step-tab active" data-step="dades">Dades</button>
+        <button class="step-tab" data-step="fotos">Fotos</button>
+        <button class="step-tab" data-step="document">Document</button>
+        <button class="step-tab" data-step="final">Guardar / Enviar</button>
+      </div>
+
+      <section class="step-panel active" data-panel="dades">
+        <div class="field-grid">
+          <label>
+            <span>Nom del lloc</span>
+            <input type="text" id="placeName" placeholder="Ex.: Mirador des Cap">
+          </label>
+          <label>
+            <span>Municipi</span>
+            <input type="text" id="municipality" placeholder="Ex.: Pollença">
+          </label>
+          <label>
+            <span>Comunitat autònoma</span>
+            <input type="text" id="region" value="Illes Balears">
+          </label>
+          <label>
+            <span>Direcció exacta</span>
+            <input type="text" id="address" placeholder="Carr., camí o referència exacta">
+          </label>
+          <label>
+            <span>Codi postal</span>
+            <input type="text" id="postalCode" inputmode="numeric" placeholder="Ex.: 07460">
+          </label>
+          <label>
+            <span>Persona que registra</span>
+            <input type="text" id="registrar" placeholder="Nom i llinatges">
+          </label>
+        </div>
+
+        <div class="subcard stack-sm">
+          <div class="section-head compact">
+            <h3>Ubicació i moment</h3>
+            <button class="ghost small" id="btn-capture-location">Capturar ubicació</button>
+          </div>
+          <div class="field-grid">
+            <label>
+              <span>Data</span>
+              <input type="date" id="obsDate">
+            </label>
+            <label>
+              <span>Hora objectiu</span>
+              <input type="time" id="targetTime" step="1">
+            </label>
+            <label>
+              <span>Latitud</span>
+              <input type="text" id="latitude" readonly>
+            </label>
+            <label>
+              <span>Longitud</span>
+              <input type="text" id="longitude" readonly>
+            </label>
+          </div>
+          <div class="countdown-box">
+            <div class="tiny">Compte enrere fins a l’hora objectiu</div>
+            <div id="countdown">—</div>
+          </div>
+        </div>
+
+        <div class="subcard stack-sm">
+          <h3>Visibilitat</h3>
+          <div class="choice-group" data-field="visibility">
+            <button type="button" class="choice" data-value="sí">Sí</button>
+            <button type="button" class="choice" data-value="no">No</button>
+            <button type="button" class="choice" data-value="parcialment">Parcialment</button>
+            <button type="button" class="choice" data-value="no comprovat">No s’ha pogut comprovar</button>
+          </div>
+        </div>
+
+        <div class="subcard stack-sm">
+          <h3>Quantitat de zona visible</h3>
+          <div class="choice-group" data-field="visibleArea">
+            <button type="button" class="choice" data-value="molt poca">Molt poca</button>
+            <button type="button" class="choice" data-value="poca">Poca</button>
+            <button type="button" class="choice" data-value="mitjana">Mitjana</button>
+            <button type="button" class="choice" data-value="alta">Alta</button>
+            <button type="button" class="choice" data-value="total">Total</button>
+          </div>
+        </div>
+
+        <div class="row-2 stack-sm-mobile">
+          <div class="subcard stack-sm">
+            <h3>Aparcament</h3>
+            <div class="choice-group" data-field="parking">
+              <button type="button" class="choice" data-value="sí">Sí</button>
+              <button type="button" class="choice" data-value="no">No</button>
+              <button type="button" class="choice" data-value="limitat">Limitat</button>
+              <button type="button" class="choice" data-value="no comprovat">No comprovat</button>
+            </div>
+          </div>
+          <div class="subcard stack-sm">
+            <h3>Accessos</h3>
+            <div class="choice-group" data-field="access">
+              <button type="button" class="choice" data-value="sí">Sí</button>
+              <button type="button" class="choice" data-value="no">No</button>
+              <button type="button" class="choice" data-value="limitat">Limitat</button>
+              <button type="button" class="choice" data-value="no comprovat">No comprovat</button>
+            </div>
+          </div>
+        </div>
+
+        <label>
+          <span>Observacions</span>
+          <textarea id="notes" rows="4" placeholder="Comentaris breus, incidències, matisos... "></textarea>
+        </label>
+
+        <div class="footer-actions">
+          <button class="ghost" id="save-draft-top">Guardar</button>
+          <button class="primary go-step" data-step="fotos">Següent: Fotos</button>
+        </div>
+      </section>
+
+      <section class="step-panel" data-panel="fotos">
+        <div class="subcard stack-sm">
+          <div class="section-head compact">
+            <h3>Fotografies del lloc</h3>
+            <label class="primary file-btn">
+              Fer / afegir foto
+              <input type="file" id="photoInput" accept="image/*" capture="environment" multiple hidden>
+            </label>
+          </div>
+          <div id="photoList" class="media-list empty">Encara no hi ha fotos.</div>
+        </div>
+        <div class="footer-actions">
+          <button class="ghost go-step" data-step="dades">Enrere</button>
+          <button class="ghost" id="save-draft-photos">Guardar</button>
+          <button class="primary go-step" data-step="document">Següent: Document</button>
+        </div>
+      </section>
+
+      <section class="step-panel" data-panel="document">
+        <div class="subcard stack-sm">
+          <div class="section-head compact">
+            <h3>Document adjunt</h3>
+            <label class="primary file-btn">
+              Adjuntar document
+              <input type="file" id="documentInput" accept=".pdf,image/*" hidden>
+            </label>
+          </div>
+          <div id="documentBox" class="media-list empty">No hi ha cap document adjunt.</div>
+        </div>
+        <div class="footer-actions">
+          <button class="ghost go-step" data-step="fotos">Enrere</button>
+          <button class="ghost" id="save-draft-doc">Guardar</button>
+          <button class="primary go-step" data-step="final">Següent: Guardar / Enviar</button>
+        </div>
+      </section>
+
+      <section class="step-panel" data-panel="final">
+        <div id="summaryBox" class="stack-sm"></div>
+        <div class="footer-actions">
+          <button class="ghost go-step" data-step="document">Enrere</button>
+          <button class="ghost" id="save-draft-final">Guardar al dispositiu</button>
+          <button class="primary" id="send-record">Enviar</button>
+        </div>
+      </section>
+    </section>
+  </template>
+
+  <script src="app.js"></script>
+</body>
+</html>
