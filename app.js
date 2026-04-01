@@ -1,5 +1,5 @@
 const STORAGE_KEY = 'zooRecords_v2';
-const API_BASE = 'https://script.google.com/macros/s/AKfycbxv39mHxEiSFoZuYf028Io5DX3p9EaI5pgn8hs5FpB6Fjt4bwcL7UWcT9D3Ds-w18WDlA/exec'
+const API_BASE = 'https://script.google.com/macros/s/AKfycbxv39mHxEiSFoZuYf028Io5DX3p9EaI5pgn8hs5FpB6Fjt4bwcL7UWcT9D3Ds-w18WDlA/exec';
 const TZ = 'Europe/Madrid';
 
 const app = document.getElementById('app');
@@ -788,6 +788,13 @@ function downloadJson(name, data) {
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
-if ('serviceWorker' in navigator) {
-  window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js').catch(() => {}));
-}
+window.addEventListener('DOMContentLoaded', () => {
+  initImageModal();
+  render();
+
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('./sw.js').catch(() => {});
+    });
+  }
+});
