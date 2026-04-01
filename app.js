@@ -59,7 +59,14 @@ function loadRecords() {
     return [];
   }
 }
-function saveRecords(records) { localStorage.setItem(STORAGE_KEY, JSON.stringify(records)); }
+function saveRecords(records) {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(records));
+  } catch (err) {
+    console.error('Error guardant a localStorage:', err);
+    throw err;
+  }
+}
 function getRecord(id) { return loadRecords().find(r => r.id === id); }
 function upsertRecord(record) {
   const records = loadRecords();
@@ -214,28 +221,51 @@ function renderEditor(record) {
     renderSummary(refs.summaryBox, record);
   });
 
-  refs.photoInput.addEventListener('change', async e => {
-    const files = [...e.target.files];
-    if (!files.length) return;
+refs.photoInput.addEventListener('change', async e => {
+  const files = [...e.target.files];
+  if (!files.length) return;
 
-    const payloads = await Promise.all(files.map(fileToDataUrl));
+  try {
+    const payloads = await Promise.all(
+      files.map(file => fileToCompressedJpegDataUrl(file, 1600, 0.72))
+    );
 
-    payloads.forEach((src, i) => record.photos.push({
-      id: crypto.randomUUID(),
-      name: files[i].name || `foto-${record.photos.length + i + 1}.jpg`,
-      mime: files[i].type,
-      src,
-      createdAt: new Date().toISOString(),
-      latitude: refs.latitude.value.trim(),
-      longitude: refs.longitude.value.trim()
-    }));
+    payloads.forEach((src, i) => {
+      record.photos.push({
+        id: crypto.randomUUID(),
+        name: (files[i].name || `foto-${record.photos.length + i + 1}.jpg`).replace(/\.[^.]+$/, '.jpg'),
+        mime: 'image/jpeg',
+        src,
+        createdAt: new Date().toISOString(),
+        latitude: refs.latitude.value.trim(),
+        longitude: refs.longitude.value.trim(),
+        approxBytes: estimateBase64SizeBytes(src)
+      });
+    });
 
     markModified(record);
-    upsertRecord(record);
+
+    try {
+      upsertRecord(record);
+    } catch (err) {
+      console.error('Error guardant fotos:', err);
+      alert('La foto és massa gran per guardar-la així. He de reduir encara més la mida o passar les fotos a IndexedDB.');
+      record.photos = record.photos.slice(0, Math.max(0, record.photos.length - payloads.length));
+      renderPhotos(refs.photoList, record);
+      renderSummary(refs.summaryBox, record);
+      e.target.value = '';
+      return;
+    }
+
     renderPhotos(refs.photoList, record);
     renderSummary(refs.summaryBox, record);
-    e.target.value = '';
-  });
+  } catch (err) {
+    console.error('Error processant la foto:', err);
+    alert('No s’ha pogut processar la foto.');
+  }
+
+  e.target.value = '';
+});
 
   refs.documentInput.addEventListener('change', async e => {
     const file = e.target.files[0];
@@ -592,6 +622,51 @@ function fileToDataUrl(file) {
     reader.onerror = reject;
     reader.readAsDataURL(file);
   });
+}
+function fileToCompressedJpegDataUrl(file, maxSize = 1600, quality = 0.72) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+
+    reader.onload = () => {
+      const img = new Image();
+
+      img.onload = () => {
+        let { width, height } = img;
+
+        if (width > height) {
+          if (width > maxSize) {
+            height = Math.round(height * (maxSize / width));
+            width = maxSize;
+          }
+        } else {
+          if (height > maxSize) {
+            width = Math.round(width * (maxSize / height));
+            height = maxSize;
+          }
+        }
+
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, width, height);
+
+        resolve(canvas.toDataURL('image/jpeg', quality));
+      };
+
+      img.onerror = reject;
+      img.src = reader.result;
+    };
+
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
+function estimateBase64SizeBytes(dataUrl) {
+  const base64 = dataUrl.split(',')[1] || '';
+  return Math.ceil(base64.length * 3 / 4);
 }
 function formatDateTime(iso) {
   try { return new Date(iso).toLocaleString('ca-ES'); }
