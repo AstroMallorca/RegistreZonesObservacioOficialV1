@@ -379,6 +379,40 @@ function goToStep(node, refs, record, step) {
   applyStep(node, currentStep);
   renderSummary(refs.summaryBox, record);
 }
+function openImageModal(src) {
+  const modal = document.getElementById('imageModal');
+  const img = document.getElementById('imageModalImg');
+  if (!modal || !img) return;
+
+  img.src = src;
+  modal.classList.remove('hidden');
+  document.body.style.overflow = 'hidden';
+}
+
+function closeImageModal() {
+  const modal = document.getElementById('imageModal');
+  const img = document.getElementById('imageModalImg');
+  if (!modal || !img) return;
+
+  modal.classList.add('hidden');
+  img.src = '';
+  document.body.style.overflow = '';
+}
+
+function initImageModal() {
+  const closeBtn = document.getElementById('imageModalClose');
+  const backdrop = document.getElementById('imageModalBackdrop');
+
+  if (closeBtn && !closeBtn.dataset.bound) {
+    closeBtn.dataset.bound = '1';
+    closeBtn.addEventListener('click', closeImageModal);
+  }
+
+  if (backdrop && !backdrop.dataset.bound) {
+    backdrop.dataset.bound = '1';
+    backdrop.addEventListener('click', closeImageModal);
+  }
+}
 function renderPhotos(container, record) {
   container.className = 'photo-grid';
   if (!record.photos.length) {
@@ -400,7 +434,7 @@ function renderPhotos(container, record) {
       </div>
     `;
     const actions = div.querySelector('.media-actions');
-    actions.appendChild(actionButton('Veure', 'ghost small', () => window.open(photo.src, '_blank')));
+    actions.appendChild(actionButton('Veure', 'ghost small', () => openImageModal(photo.src)));
     actions.appendChild(actionButton('Eliminar', 'ghost small', () => {
       record.photos = record.photos.filter(p => p.id !== photo.id);
       markModified(record);
@@ -424,7 +458,13 @@ function renderDocument(container, record) {
   div.innerHTML = `<h3>${escapeHtml(record.document.name)}</h3><div class="tiny">${record.document.mime || 'document'}</div>`;
   const actions = document.createElement('div');
   actions.className = 'footer-actions';
-  actions.appendChild(actionButton('Veure', 'ghost', () => window.open(record.document.src, '_blank')));
+  actions.appendChild(actionButton('Veure', 'ghost', () => {
+  if ((record.document.mime || '').startsWith('image/')) {
+    openImageModal(record.document.src);
+  } else {
+    window.open(record.document.src, '_blank');
+  }
+}));
   actions.appendChild(actionButton('Eliminar', 'ghost', () => {
     record.document = null;
     markModified(record);
@@ -496,6 +536,12 @@ async function submitRecord(id, forceResend = false) {
     downloadJson(`${fileBase}.json`, payload);
     alert(forceResend ? 'S’ha generat de nou el fitxer local de la versió actual.' : 'El registre s’ha marcat com enviat i s’ha descarregat un JSON de prova. Quan connectem el servidor, aquí es farà la pujada real.');
     currentView = 'sent';
+    if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js').catch(() => {}));
+}
+
+initImageModal();
+render();
     render();
     return;
   }
