@@ -136,6 +136,7 @@ button:active, .file-btn:active { transform: translateY(1px); }
   display: grid;
   place-items: center;
   padding: 20px;
+  pointer-events: none;
 }
 
 .image-modal-content img {
@@ -145,6 +146,7 @@ button:active, .file-btn:active { transform: translateY(1px); }
   border-radius: 16px;
   box-shadow: 0 16px 40px rgba(0,0,0,.45);
   background: #000;
+  pointer-events: auto;
 }
 
 .image-modal-close {
