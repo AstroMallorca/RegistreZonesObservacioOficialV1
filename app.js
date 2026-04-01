@@ -536,12 +536,16 @@ async function submitRecord(id, forceResend = false) {
     downloadJson(`${fileBase}.json`, payload);
     alert(forceResend ? 'S’ha generat de nou el fitxer local de la versió actual.' : 'El registre s’ha marcat com enviat i s’ha descarregat un JSON de prova. Quan connectem el servidor, aquí es farà la pujada real.');
     currentView = 'sent';
-    if ('serviceWorker' in navigator) {
-  window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js').catch(() => {}));
-}
+window.addEventListener('DOMContentLoaded', () => {
+  initImageModal();
+  render();
 
-initImageModal();
-render();
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('./sw.js').catch(() => {});
+    });
+  }
+});
     render();
     return;
   }
