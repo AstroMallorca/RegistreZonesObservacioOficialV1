@@ -60,8 +60,9 @@
         </div>
       </div>
 
-      <div class="step-tabs">
+      <div class="step-tabs five-tabs">
         <button class="step-tab active" data-step="dades">Dades</button>
+        <button class="step-tab" data-step="visibilitat">Visibilitat</button>
         <button class="step-tab" data-step="fotos">Fotos</button>
         <button class="step-tab" data-step="document">Document</button>
         <button class="step-tab" data-step="final">Guardar / Enviar</button>
@@ -77,51 +78,56 @@
             <span>Municipi</span>
             <input type="text" id="municipality" placeholder="Ex.: Pollença">
           </label>
-          <label>
-            <span>Comunitat autònoma</span>
-            <input type="text" id="region" value="Illes Balears">
-          </label>
-          <label>
-            <span>Direcció exacta</span>
+          <label class="full-width">
+            <span>Direcció</span>
             <input type="text" id="address" placeholder="Carr., camí o referència exacta">
           </label>
           <label>
-            <span>Codi postal</span>
-            <input type="text" id="postalCode" inputmode="numeric" placeholder="Ex.: 07460">
-          </label>
-          <label>
-            <span>Persona que registra</span>
+            <span>Persona que registre</span>
             <input type="text" id="registrar" placeholder="Nom i llinatges">
           </label>
         </div>
 
         <div class="subcard stack-sm">
-          <div class="section-head compact">
+          <div class="section-head compact wrap-mobile">
             <h3>Ubicació i moment</h3>
-            <button class="ghost small" id="btn-capture-location">Capturar ubicació</button>
+            <button class="ghost small" id="btn-capture-location">Captura ubicació</button>
           </div>
           <div class="field-grid">
             <label>
               <span>Data</span>
-              <input type="date" id="obsDate">
+              <select id="obsDate">
+                <option value="2026-04-29">29/4</option>
+                <option value="2026-04-30">30/4</option>
+              </select>
             </label>
             <label>
               <span>Hora objectiu</span>
-              <input type="time" id="targetTime" step="1">
+              <input type="text" id="targetTime" readonly placeholder="Automàtica segons la ubicació">
             </label>
             <label>
               <span>Latitud</span>
-              <input type="text" id="latitude" readonly>
+              <input type="number" id="latitude" step="any" placeholder="Automàtica o manual">
             </label>
             <label>
               <span>Longitud</span>
-              <input type="text" id="longitude" readonly>
+              <input type="number" id="longitude" step="any" placeholder="Automàtica o manual">
             </label>
           </div>
           <div class="countdown-box">
-            <div class="tiny">Compte enrere fins a l’hora objectiu</div>
+            <div class="tiny">Compte enrera automàtic</div>
             <div id="countdown">—</div>
           </div>
+          <div class="footer-actions compact-actions">
+            <button class="ghost" id="save-draft-top">Guardar</button>
+          </div>
+        </div>
+      </section>
+
+      <section class="step-panel" data-panel="visibilitat">
+        <div class="countdown-box slim-box">
+          <div class="tiny">Compte enrera</div>
+          <div id="countdown-visibility">—</div>
         </div>
 
         <div class="subcard stack-sm">
@@ -130,7 +136,7 @@
             <button type="button" class="choice" data-value="sí">Sí</button>
             <button type="button" class="choice" data-value="no">No</button>
             <button type="button" class="choice" data-value="parcialment">Parcialment</button>
-            <button type="button" class="choice" data-value="no comprovat">No s’ha pogut comprovar</button>
+            <button type="button" class="choice" data-value="no s'ha pogut comprovar">No s'ha pogut comprovar</button>
           </div>
         </div>
 
@@ -167,37 +173,34 @@
         </div>
 
         <label>
-          <span>Observacions</span>
-          <textarea id="notes" rows="4" placeholder="Comentaris breus, incidències, matisos... "></textarea>
+          <span>Comentaris</span>
+          <textarea id="notes" rows="4" placeholder="Comentaris, incidències o aclariments"></textarea>
         </label>
 
-        <div class="footer-actions">
-          <button class="ghost" id="save-draft-top">Guardar</button>
-          <button class="primary go-step" data-step="fotos">Següent: Fotos</button>
+        <div class="footer-actions compact-actions">
+          <button class="ghost" id="save-draft-vis">Guardar</button>
         </div>
       </section>
 
       <section class="step-panel" data-panel="fotos">
         <div class="subcard stack-sm">
-          <div class="section-head compact">
+          <div class="section-head compact wrap-mobile">
             <h3>Fotografies del lloc</h3>
             <label class="primary file-btn">
-              Fer / afegir foto
+              Fer / Afegir foto
               <input type="file" id="photoInput" accept="image/*" capture="environment" multiple hidden>
             </label>
           </div>
-          <div id="photoList" class="media-list empty">Encara no hi ha fotos.</div>
+          <div id="photoList" class="photo-grid empty">Encara no hi ha fotos.</div>
         </div>
-        <div class="footer-actions">
-          <button class="ghost go-step" data-step="dades">Enrere</button>
+        <div class="footer-actions compact-actions">
           <button class="ghost" id="save-draft-photos">Guardar</button>
-          <button class="primary go-step" data-step="document">Següent: Document</button>
         </div>
       </section>
 
       <section class="step-panel" data-panel="document">
         <div class="subcard stack-sm">
-          <div class="section-head compact">
+          <div class="section-head compact wrap-mobile">
             <h3>Document adjunt</h3>
             <label class="primary file-btn">
               Adjuntar document
@@ -206,17 +209,14 @@
           </div>
           <div id="documentBox" class="media-list empty">No hi ha cap document adjunt.</div>
         </div>
-        <div class="footer-actions">
-          <button class="ghost go-step" data-step="fotos">Enrere</button>
+        <div class="footer-actions compact-actions">
           <button class="ghost" id="save-draft-doc">Guardar</button>
-          <button class="primary go-step" data-step="final">Següent: Guardar / Enviar</button>
         </div>
       </section>
 
       <section class="step-panel" data-panel="final">
         <div id="summaryBox" class="stack-sm"></div>
         <div class="footer-actions">
-          <button class="ghost go-step" data-step="document">Enrere</button>
           <button class="ghost" id="save-draft-final">Guardar al dispositiu</button>
           <button class="primary" id="send-record">Enviar</button>
         </div>

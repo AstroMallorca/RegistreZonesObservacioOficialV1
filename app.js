@@ -1,5 +1,6 @@
-const STORAGE_KEY = 'zooRecords_v1';
+const STORAGE_KEY = 'zooRecords_v2';
 const API_BASE = ''; // Ex.: 'https://astromallorca.com/api'
+const TZ = 'Europe/Madrid';
 
 const app = document.getElementById('app');
 let currentView = 'home';
@@ -17,11 +18,9 @@ const emptyRecord = () => ({
   data: {
     placeName: '',
     municipality: '',
-    region: 'Illes Balears',
     address: '',
-    postalCode: '',
     registrar: '',
-    obsDate: todayLocal(),
+    obsDate: '2026-04-29',
     targetTime: '',
     latitude: '',
     longitude: '',
@@ -35,16 +34,33 @@ const emptyRecord = () => ({
   document: null
 });
 
+function migrateRecords(records) {
+  return records.map(r => ({
+    ...r,
+    data: {
+      placeName: '', municipality: '', address: '', registrar: '', obsDate: '2026-04-29', targetTime: '',
+      latitude: '', longitude: '', visibility: '', visibleArea: '', parking: '', access: '', notes: '',
+      ...(r.data || {})
+    },
+    photos: Array.isArray(r.photos) ? r.photos : [],
+    sentVersions: Array.isArray(r.sentVersions) ? r.sentVersions : [],
+    version: r.version || 1,
+    status: r.status || 'esborrany'
+  }));
+}
+
 function loadRecords() {
-  try { return JSON.parse(localStorage.getItem(STORAGE_KEY)) || []; }
-  catch { return []; }
+  try {
+    const own = JSON.parse(localStorage.getItem(STORAGE_KEY)) || [];
+    if (own.length) return migrateRecords(own);
+    const old = JSON.parse(localStorage.getItem('zooRecords_v1')) || [];
+    return migrateRecords(old);
+  } catch {
+    return [];
+  }
 }
-function saveRecords(records) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(records));
-}
-function getRecord(id) {
-  return loadRecords().find(r => r.id === id);
-}
+function saveRecords(records) { localStorage.setItem(STORAGE_KEY, JSON.stringify(records)); }
+function getRecord(id) { return loadRecords().find(r => r.id === id); }
 function upsertRecord(record) {
   const records = loadRecords();
   const index = records.findIndex(r => r.id === record.id);
@@ -53,14 +69,7 @@ function upsertRecord(record) {
   else records.unshift(record);
   saveRecords(records);
 }
-function deleteRecord(id) {
-  saveRecords(loadRecords().filter(r => r.id !== id));
-}
-
-function todayLocal() {
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
-}
+function deleteRecord(id) { saveRecords(loadRecords().filter(r => r.id !== id)); }
 
 function render() {
   clearInterval(countdownTimer);
@@ -70,9 +79,7 @@ function render() {
   if (currentView === 'new-record') renderEditor(editingId ? getRecord(editingId) : emptyRecord());
 }
 
-function template(id) {
-  return document.getElementById(id).content.cloneNode(true);
-}
+function template(id) { return document.getElementById(id).content.cloneNode(true); }
 
 function renderHome() {
   app.innerHTML = '';
@@ -85,11 +92,12 @@ function renderHome() {
   node.querySelectorAll('.nav').forEach(btn => btn.addEventListener('click', () => {
     currentView = btn.dataset.view;
     editingId = null;
+    currentStep = 'dades';
     render();
   }));
   node.getElementById('btn-sync-pending').addEventListener('click', syncPending);
   node.getElementById('btn-help').addEventListener('click', () => {
-    alert('Aquesta primera versió ja permet crear, editar, guardar i preparar l’enviament de registres. L’API d’enviament queda preparada per connectar-se a un servidor.');
+    alert('Aquesta versió deixa entrar a qualsevol secció en qualsevol moment. L’hora objectiu i el compte enrera es calculen automàticament quan hi ha data i coordenades.');
   });
   app.appendChild(node);
 }
@@ -129,7 +137,7 @@ function renderList(title, statuses) {
         actions.appendChild(actionButton('Reenviar', 'ghost', () => submitRecord(record.id, true)));
         actions.appendChild(actionButton('Eliminar còpia local', 'ghost', () => { if (confirm('Eliminar la còpia local?')) { deleteRecord(record.id); render(); } }));
       } else {
-        actions.appendChild(actionButton('Obrir', 'secondary', () => { editingId = record.id; currentView = 'new-record'; render(); }));
+        actions.appendChild(actionButton('Obrir', 'secondary', () => { editingId = record.id; currentView = 'new-record'; currentStep = 'dades'; render(); }));
         actions.appendChild(actionButton('Eliminar', 'ghost', () => { if (confirm('Eliminar aquest registre?')) { deleteRecord(record.id); render(); } }));
       }
       container.appendChild(div);
@@ -149,13 +157,14 @@ function actionButton(label, cls, onClick) {
 function renderEditor(record) {
   if (!record) {
     editingId = null;
-    currentView = 'new-record';
     record = emptyRecord();
   }
 
   app.innerHTML = '';
   const node = template('tpl-editor');
-  node.getElementById('editor-title').textContent = record.data.placeName ? record.data.placeName : 'Registrar ZOO';
+  const refs = bindFormRefs(node);
+
+  node.getElementById('editor-title').textContent = record.data.placeName || 'Registrar ZOO';
   node.getElementById('editor-meta').textContent = `${record.status} · v${record.version}`;
   node.getElementById('editor-back').addEventListener('click', () => {
     currentView = 'home';
@@ -163,39 +172,52 @@ function renderEditor(record) {
     render();
   });
 
-  const refs = bindFormRefs(node);
   fillForm(refs, record);
+  activateChoiceButtons(node, record);
   applyStep(node, currentStep);
   renderPhotos(refs.photoList, record);
   renderDocument(refs.documentBox, record);
   renderSummary(refs.summaryBox, record);
-  activateChoiceButtons(node, record);
-  startCountdown(refs.targetTime, refs.obsDate, node.getElementById('countdown'));
+  recalcTargetTime(refs, record);
+  startCountdown(refs.obsDate, refs.targetTime, refs.countdown, refs.countdownVisibility);
 
   node.querySelectorAll('.step-tab').forEach(btn => btn.addEventListener('click', () => {
     currentStep = btn.dataset.step;
-    saveFormToRecord(refs, record);
-    applyStep(node, currentStep);
-    renderSummary(refs.summaryBox, record);
-  }));
-  node.querySelectorAll('.go-step').forEach(btn => btn.addEventListener('click', () => {
-    currentStep = btn.dataset.step;
-    saveFormToRecord(refs, record);
+    saveFormToRecord(refs, record, { keepStatus: true });
     applyStep(node, currentStep);
     renderSummary(refs.summaryBox, record);
   }));
 
+  ['placeName','municipality','address','registrar','latitude','longitude','obsDate','notes'].forEach(key => {
+    refs[key].addEventListener('input', () => {
+      saveFormToRecord(refs, record, { silent: true, keepStatus: true });
+      if (['latitude','longitude','obsDate'].includes(key)) {
+        recalcTargetTime(refs, record);
+      }
+      if (key === 'placeName') {
+        node.getElementById('editor-title').textContent = refs.placeName.value.trim() || 'Registrar ZOO';
+      }
+      renderSummary(refs.summaryBox, record);
+    });
+  });
+  refs.obsDate.addEventListener('change', () => {
+    saveFormToRecord(refs, record, { silent: true, keepStatus: true });
+    recalcTargetTime(refs, record);
+    renderSummary(refs.summaryBox, record);
+  });
+
   refs.photoInput.addEventListener('change', async e => {
     const files = [...e.target.files];
+    if (!files.length) return;
     const payloads = await Promise.all(files.map(fileToDataUrl));
     payloads.forEach((src, i) => record.photos.push({
       id: crypto.randomUUID(),
-      name: files[i].name || `foto-${i+1}.jpg`,
+      name: files[i].name || `foto-${record.photos.length + i + 1}.jpg`,
       mime: files[i].type,
       src,
       createdAt: new Date().toISOString(),
-      latitude: refs.latitude.value,
-      longitude: refs.longitude.value
+      latitude: refs.latitude.value.trim(),
+      longitude: refs.longitude.value.trim()
     }));
     markModified(record);
     upsertRecord(record);
@@ -223,11 +245,12 @@ function renderEditor(record) {
 
   refs.btnCaptureLocation.addEventListener('click', () => captureLocation(refs, record));
   refs.saveDraftTop.addEventListener('click', () => saveDraft(refs, record));
+  refs.saveDraftVis.addEventListener('click', () => saveDraft(refs, record));
   refs.saveDraftPhotos.addEventListener('click', () => saveDraft(refs, record));
   refs.saveDraftDoc.addEventListener('click', () => saveDraft(refs, record));
   refs.saveDraftFinal.addEventListener('click', () => saveDraft(refs, record));
   refs.sendRecord.addEventListener('click', async () => {
-    saveFormToRecord(refs, record);
+    saveFormToRecord(refs, record, { keepStatus: true });
     upsertRecord(record);
     await submitRecord(record.id);
   });
@@ -238,24 +261,43 @@ function renderEditor(record) {
 
 function bindFormRefs(node) {
   return {
-    placeName: node.getElementById('placeName'), municipality: node.getElementById('municipality'), region: node.getElementById('region'),
-    address: node.getElementById('address'), postalCode: node.getElementById('postalCode'), registrar: node.getElementById('registrar'),
-    obsDate: node.getElementById('obsDate'), targetTime: node.getElementById('targetTime'), latitude: node.getElementById('latitude'),
-    longitude: node.getElementById('longitude'), notes: node.getElementById('notes'), photoInput: node.getElementById('photoInput'),
-    photoList: node.getElementById('photoList'), documentInput: node.getElementById('documentInput'), documentBox: node.getElementById('documentBox'),
-    summaryBox: node.getElementById('summaryBox'), btnCaptureLocation: node.getElementById('btn-capture-location'),
-    saveDraftTop: node.getElementById('save-draft-top'), saveDraftPhotos: node.getElementById('save-draft-photos'),
-    saveDraftDoc: node.getElementById('save-draft-doc'), saveDraftFinal: node.getElementById('save-draft-final'), sendRecord: node.getElementById('send-record')
+    placeName: node.getElementById('placeName'),
+    municipality: node.getElementById('municipality'),
+    address: node.getElementById('address'),
+    registrar: node.getElementById('registrar'),
+    obsDate: node.getElementById('obsDate'),
+    targetTime: node.getElementById('targetTime'),
+    latitude: node.getElementById('latitude'),
+    longitude: node.getElementById('longitude'),
+    notes: node.getElementById('notes'),
+    countdown: node.getElementById('countdown'),
+    countdownVisibility: node.getElementById('countdown-visibility'),
+    photoInput: node.getElementById('photoInput'),
+    photoList: node.getElementById('photoList'),
+    documentInput: node.getElementById('documentInput'),
+    documentBox: node.getElementById('documentBox'),
+    summaryBox: node.getElementById('summaryBox'),
+    btnCaptureLocation: node.getElementById('btn-capture-location'),
+    saveDraftTop: node.getElementById('save-draft-top'),
+    saveDraftVis: node.getElementById('save-draft-vis'),
+    saveDraftPhotos: node.getElementById('save-draft-photos'),
+    saveDraftDoc: node.getElementById('save-draft-doc'),
+    saveDraftFinal: node.getElementById('save-draft-final'),
+    sendRecord: node.getElementById('send-record')
   };
 }
 
 function fillForm(refs, record) {
-  Object.entries(record.data).forEach(([k,v]) => { if (refs[k]) refs[k].value = v || ''; });
+  Object.entries(record.data).forEach(([k, v]) => {
+    if (refs[k]) refs[k].value = v || '';
+  });
 }
 
-function saveFormToRecord(refs, record) {
-  Object.keys(record.data).forEach(k => { if (refs[k]) record.data[k] = refs[k].value.trim(); });
-  markModified(record);
+function saveFormToRecord(refs, record, opts = {}) {
+  Object.keys(record.data).forEach(k => {
+    if (refs[k]) record.data[k] = refs[k].value.trim();
+  });
+  if (!opts.keepStatus) markModified(record);
   upsertRecord(record);
 }
 
@@ -285,7 +327,7 @@ function applyStep(node, step) {
 }
 
 function renderPhotos(container, record) {
-  container.className = 'media-list';
+  container.className = 'photo-grid';
   if (!record.photos.length) {
     container.classList.add('empty');
     container.textContent = 'Encara no hi ha fotos.';
@@ -294,10 +336,10 @@ function renderPhotos(container, record) {
   container.innerHTML = '';
   record.photos.forEach(photo => {
     const div = document.createElement('div');
-    div.className = 'media-item';
+    div.className = 'photo-card';
     div.innerHTML = `
       <img src="${photo.src}" alt="${escapeHtml(photo.name)}">
-      <div>
+      <div class="photo-info">
         <strong>${escapeHtml(photo.name)}</strong>
         <div class="tiny">${formatDateTime(photo.createdAt)}</div>
         <div class="tiny">${photo.latitude || '—'}, ${photo.longitude || '—'}</div>
@@ -345,6 +387,10 @@ function renderSummary(container, record) {
     <div class="summary-grid">
       <div class="summary-item"><strong>Nom del lloc</strong>${escapeHtml(record.data.placeName || '—')}</div>
       <div class="summary-item"><strong>Municipi</strong>${escapeHtml(record.data.municipality || '—')}</div>
+      <div class="summary-item"><strong>Direcció</strong>${escapeHtml(record.data.address || '—')}</div>
+      <div class="summary-item"><strong>Persona que registre</strong>${escapeHtml(record.data.registrar || '—')}</div>
+      <div class="summary-item"><strong>Data</strong>${escapeHtml(formatShortDate(record.data.obsDate) || '—')}</div>
+      <div class="summary-item"><strong>Hora objectiu</strong>${escapeHtml(record.data.targetTime || '—')}</div>
       <div class="summary-item"><strong>Visibilitat</strong>${escapeHtml(record.data.visibility || '—')}</div>
       <div class="summary-item"><strong>Zona visible</strong>${escapeHtml(record.data.visibleArea || '—')}</div>
       <div class="summary-item"><strong>Aparcament</strong>${escapeHtml(record.data.parking || '—')}</div>
@@ -369,13 +415,15 @@ async function captureLocation(refs, record) {
     record.data.longitude = refs.longitude.value;
     markModified(record);
     upsertRecord(record);
+    recalcTargetTime(refs, record);
+    renderSummary(refs.summaryBox, record);
   }, err => {
     alert(`No s'ha pogut obtenir la ubicació: ${err.message}`);
   }, { enableHighAccuracy: true, timeout: 12000, maximumAge: 0 });
 }
 
 function saveDraft(refs, record) {
-  saveFormToRecord(refs, record);
+  saveFormToRecord(refs, record, { keepStatus: true });
   if (record.status !== 'modificat' && record.status !== 'enviat') record.status = 'esborrany';
   upsertRecord(record);
   alert('Registre guardat al dispositiu.');
@@ -385,19 +433,15 @@ async function submitRecord(id, forceResend = false) {
   const record = getRecord(id);
   if (!record) return;
 
-  const fileBase = slugify(record.data.placeName || 'zoo') + '_' + (record.data.obsDate || todayLocal()) + `_v${record.version}`;
-  const payload = {
-    fileBase,
-    record,
-    exportedAt: new Date().toISOString()
-  };
+  const fileBase = `${slugify(record.data.placeName || 'zoo')}_${record.data.obsDate || '2026-04-29'}_v${record.version}`;
+  const payload = { fileBase, record, exportedAt: new Date().toISOString() };
 
   if (!API_BASE) {
     record.status = 'enviat';
-    record.sentVersions.push({ version: record.version, sentAt: new Date().toISOString(), mode: 'local-demo' });
+    if (!forceResend) record.sentVersions.push({ version: record.version, sentAt: new Date().toISOString(), mode: 'local-demo' });
     upsertRecord(record);
     downloadJson(`${fileBase}.json`, payload);
-    alert(forceResend ? 'S’ha generat de nou el fitxer local de la versió actual.' : 'Primera base feta: el registre s’ha marcat com enviat i s’ha descarregat un JSON de prova. Quan tenguem el servidor, aquí es farà la pujada real.');
+    alert(forceResend ? 'S’ha generat de nou el fitxer local de la versió actual.' : 'El registre s’ha marcat com enviat i s’ha descarregat un JSON de prova. Quan connectem el servidor, aquí es farà la pujada real.');
     currentView = 'sent';
     render();
     return;
@@ -439,27 +483,84 @@ async function syncPending() {
     alert('No hi ha registres pendents d’enviar.');
     return;
   }
-  alert(`Hi ha ${pending.length} registres pendents. En aquesta primera versió, la pujada real quedarà activa quan connectem l’API.`);
+  alert(`Hi ha ${pending.length} registres pendents. La pujada automàtica quedarà activa quan connectem l’API.`);
 }
 
-function startCountdown(targetInput, dateInput, out) {
+function recalcTargetTime(refs, record) {
+  const lat = parseFloat(refs.latitude.value);
+  const lon = parseFloat(refs.longitude.value);
+  const date = refs.obsDate.value;
+  const target = Number.isFinite(lat) && Number.isFinite(lon) && date ? getSunsetLocalTime(date, lat, lon) : '';
+  refs.targetTime.value = target || '';
+  record.data.targetTime = target || '';
+  upsertRecord(record);
+  startCountdown(refs.obsDate, refs.targetTime, refs.countdown, refs.countdownVisibility);
+}
+
+function startCountdown(dateInput, timeInput, out1, out2) {
+  clearInterval(countdownTimer);
   const update = () => {
-    if (!targetInput.value || !dateInput.value) { out.textContent = '—'; return; }
-    const target = new Date(`${dateInput.value}T${targetInput.value}`);
-    const diff = target.getTime() - Date.now();
-    if (Number.isNaN(target.getTime())) { out.textContent = '—'; return; }
-    if (diff <= 0) { out.textContent = 'Ara pots fer la comprovació'; return; }
-    const total = Math.floor(diff / 1000);
-    const h = String(Math.floor(total / 3600)).padStart(2,'0');
-    const m = String(Math.floor((total % 3600) / 60)).padStart(2,'0');
-    const s = String(total % 60).padStart(2,'0');
-    out.textContent = `${h}:${m}:${s}`;
+    const text = getCountdownText(dateInput.value, timeInput.value);
+    out1.textContent = text;
+    out2.textContent = text;
   };
   update();
-  targetInput.addEventListener('input', update);
-  dateInput.addEventListener('input', update);
   countdownTimer = setInterval(update, 1000);
 }
+
+function getCountdownText(dateStr, timeStr) {
+  if (!dateStr || !timeStr) return '—';
+  const target = new Date(`${dateStr}T${timeStr}`);
+  const diff = target.getTime() - Date.now();
+  if (Number.isNaN(target.getTime())) return '—';
+  if (diff <= 0) return 'Ara pots fer la comprovació';
+  const total = Math.floor(diff / 1000);
+  const d = Math.floor(total / 86400);
+  const h = Math.floor((total % 86400) / 3600);
+  const m = Math.floor((total % 3600) / 60);
+  const s = total % 60;
+  return `${d} dies · ${String(h).padStart(2,'0')} h · ${String(m).padStart(2,'0')} min · ${String(s).padStart(2,'0')} s`;
+}
+
+function getSunsetLocalTime(dateStr, lat, lon) {
+  const [year, month, day] = dateStr.split('-').map(Number);
+  const N = dayOfYear(year, month, day);
+  const lngHour = lon / 15;
+  const t = N + ((18 - lngHour) / 24);
+  const M = (0.9856 * t) - 3.289;
+  let L = M + (1.916 * Math.sin(degToRad(M))) + (0.020 * Math.sin(2 * degToRad(M))) + 282.634;
+  L = normalizeDegrees(L);
+  let RA = radToDeg(Math.atan(0.91764 * Math.tan(degToRad(L))));
+  RA = normalizeDegrees(RA);
+  const Lquadrant  = Math.floor(L / 90) * 90;
+  const RAquadrant = Math.floor(RA / 90) * 90;
+  RA = RA + (Lquadrant - RAquadrant);
+  RA /= 15;
+  const sinDec = 0.39782 * Math.sin(degToRad(L));
+  const cosDec = Math.cos(Math.asin(sinDec));
+  const cosH = (Math.cos(degToRad(90.833)) - (sinDec * Math.sin(degToRad(lat)))) / (cosDec * Math.cos(degToRad(lat)));
+  if (cosH < -1 || cosH > 1) return '';
+  let H = radToDeg(Math.acos(cosH));
+  H /= 15;
+  const T = H + RA - (0.06571 * t) - 6.622;
+  let UT = T - lngHour;
+  UT = ((UT % 24) + 24) % 24;
+  const utcDate = new Date(Date.UTC(year, month - 1, day, 0, 0, 0));
+  utcDate.setUTCHours(Math.floor(UT), Math.floor((UT % 1) * 60), Math.round((((UT % 1) * 60) % 1) * 60));
+  return new Intl.DateTimeFormat('en-GB', {
+    timeZone: TZ,
+    hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false
+  }).format(utcDate);
+}
+
+function dayOfYear(y, m, d) {
+  const start = Date.UTC(y, 0, 0);
+  const current = Date.UTC(y, m - 1, d);
+  return Math.floor((current - start) / 86400000);
+}
+function degToRad(v) { return v * Math.PI / 180; }
+function radToDeg(v) { return v * 180 / Math.PI; }
+function normalizeDegrees(v) { return ((v % 360) + 360) % 360; }
 
 function fileToDataUrl(file) {
   return new Promise((resolve, reject) => {
@@ -472,6 +573,11 @@ function fileToDataUrl(file) {
 function formatDateTime(iso) {
   try { return new Date(iso).toLocaleString('ca-ES'); }
   catch { return iso; }
+}
+function formatShortDate(dateStr) {
+  if (!dateStr) return '';
+  const [y,m,d] = dateStr.split('-');
+  return `${Number(d)}/${Number(m)}/${y}`;
 }
 function slugify(str) {
   return str.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'zoo';
