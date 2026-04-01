@@ -181,12 +181,12 @@ function renderEditor(record) {
   recalcTargetTime(refs, record);
   startCountdown(refs.obsDate, refs.targetTime, refs.countdown, refs.countdownVisibility);
 
-  node.querySelectorAll('.step-tab').forEach(btn => btn.addEventListener('click', () => {
-    currentStep = btn.dataset.step;
-    saveFormToRecord(refs, record, { keepStatus: true });
-    applyStep(node, currentStep);
-    renderSummary(refs.summaryBox, record);
-  }));
+node.querySelectorAll('.step-tab').forEach(btn => {
+  btn.addEventListener('click', (e) => {
+    e.preventDefault();
+    goToStep(node, refs, record, btn.dataset.step);
+  });
+});
 
   ['placeName','municipality','address','registrar','latitude','longitude','obsDate','notes'].forEach(key => {
     refs[key].addEventListener('input', () => {
@@ -325,7 +325,12 @@ function applyStep(node, step) {
   node.querySelectorAll('.step-tab').forEach(btn => btn.classList.toggle('active', btn.dataset.step === step));
   node.querySelectorAll('.step-panel').forEach(p => p.classList.toggle('active', p.dataset.panel === step));
 }
-
+function goToStep(node, refs, record, step) {
+  currentStep = step;
+  saveFormToRecord(refs, record, { keepStatus: true });
+  applyStep(node, currentStep);
+  renderSummary(refs.summaryBox, record);
+}
 function renderPhotos(container, record) {
   container.className = 'photo-grid';
   if (!record.photos.length) {
