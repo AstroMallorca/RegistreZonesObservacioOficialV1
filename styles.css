@@ -56,7 +56,7 @@ button:active, .file-btn:active { transform: translateY(1px); }
 .section-head { display: flex; align-items: center; gap: 12px; justify-content: space-between; }
 .section-head.compact h3, .section-head h2 { margin: 0; }
 .wrap-mobile { flex-wrap: wrap; }
-.step-tabs { display: grid; gap: 8px; position: sticky; top: 8px; z-index: 5; }
+.step-tabs { display: grid; gap: 8px; }
 .five-tabs { grid-template-columns: repeat(5, minmax(0, 1fr)); }
 .step-tab {
   background: rgba(255,255,255,.05); color: var(--muted); border: 1px solid rgba(255,255,255,.08);
