@@ -161,12 +161,18 @@ function renderEditor(record) {
   }
 
   app.innerHTML = '';
-  const node = template('tpl-editor');
+
+  const frag = template('tpl-editor');
+  app.appendChild(frag);
+
+  const node = app.querySelector('.card.stack-md');
   const refs = bindFormRefs(node);
 
-  node.getElementById('editor-title').textContent = record.data.placeName || 'Registrar ZOO';
-  node.getElementById('editor-meta').textContent = `${record.status} · v${record.version}`;
-  node.getElementById('editor-back').addEventListener('click', () => {
+  node.querySelector('#editor-title').textContent = record.data.placeName || 'Registrar ZOO';
+  node.querySelector('#editor-meta').textContent = `${record.status} · v${record.version}`;
+
+  node.querySelector('#editor-back').addEventListener('click', (e) => {
+    e.preventDefault();
     currentView = 'home';
     editingId = null;
     render();
@@ -181,25 +187,27 @@ function renderEditor(record) {
   recalcTargetTime(refs, record);
   startCountdown(refs.obsDate, refs.targetTime, refs.countdown, refs.countdownVisibility);
 
-node.querySelectorAll('.step-tab').forEach(btn => {
-  btn.addEventListener('click', (e) => {
-    e.preventDefault();
-    goToStep(node, refs, record, btn.dataset.step);
+  node.querySelectorAll('.step-tab').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      goToStep(node, refs, record, btn.dataset.step);
+    });
   });
-});
 
-  ['placeName','municipality','address','registrar','latitude','longitude','obsDate','notes'].forEach(key => {
+  ['placeName','municipality','address','registrar','latitude','longitude','notes'].forEach(key => {
     refs[key].addEventListener('input', () => {
       saveFormToRecord(refs, record, { silent: true, keepStatus: true });
-      if (['latitude','longitude','obsDate'].includes(key)) {
+      if (['latitude','longitude'].includes(key)) {
         recalcTargetTime(refs, record);
       }
       if (key === 'placeName') {
-        node.getElementById('editor-title').textContent = refs.placeName.value.trim() || 'Registrar ZOO';
+        node.querySelector('#editor-title').textContent = refs.placeName.value.trim() || 'Registrar ZOO';
       }
       renderSummary(refs.summaryBox, record);
     });
   });
+
   refs.obsDate.addEventListener('change', () => {
     saveFormToRecord(refs, record, { silent: true, keepStatus: true });
     recalcTargetTime(refs, record);
@@ -209,7 +217,9 @@ node.querySelectorAll('.step-tab').forEach(btn => {
   refs.photoInput.addEventListener('change', async e => {
     const files = [...e.target.files];
     if (!files.length) return;
+
     const payloads = await Promise.all(files.map(fileToDataUrl));
+
     payloads.forEach((src, i) => record.photos.push({
       id: crypto.randomUUID(),
       name: files[i].name || `foto-${record.photos.length + i + 1}.jpg`,
@@ -219,6 +229,7 @@ node.querySelectorAll('.step-tab').forEach(btn => {
       latitude: refs.latitude.value.trim(),
       longitude: refs.longitude.value.trim()
     }));
+
     markModified(record);
     upsertRecord(record);
     renderPhotos(refs.photoList, record);
@@ -229,6 +240,7 @@ node.querySelectorAll('.step-tab').forEach(btn => {
   refs.documentInput.addEventListener('change', async e => {
     const file = e.target.files[0];
     if (!file) return;
+
     record.document = {
       id: crypto.randomUUID(),
       name: file.name,
@@ -236,6 +248,7 @@ node.querySelectorAll('.step-tab').forEach(btn => {
       src: await fileToDataUrl(file),
       createdAt: new Date().toISOString()
     };
+
     markModified(record);
     upsertRecord(record);
     renderDocument(refs.documentBox, record);
@@ -243,47 +256,52 @@ node.querySelectorAll('.step-tab').forEach(btn => {
     e.target.value = '';
   });
 
-  refs.btnCaptureLocation.addEventListener('click', () => captureLocation(refs, record));
-  refs.saveDraftTop.addEventListener('click', () => saveDraft(refs, record));
-  refs.saveDraftVis.addEventListener('click', () => saveDraft(refs, record));
-  refs.saveDraftPhotos.addEventListener('click', () => saveDraft(refs, record));
-  refs.saveDraftDoc.addEventListener('click', () => saveDraft(refs, record));
-  refs.saveDraftFinal.addEventListener('click', () => saveDraft(refs, record));
-  refs.sendRecord.addEventListener('click', async () => {
+  refs.btnCaptureLocation.addEventListener('click', (e) => {
+    e.preventDefault();
+    captureLocation(refs, record);
+  });
+
+  refs.saveDraftTop.addEventListener('click', (e) => { e.preventDefault(); saveDraft(refs, record); });
+  refs.saveDraftVis.addEventListener('click', (e) => { e.preventDefault(); saveDraft(refs, record); });
+  refs.saveDraftPhotos.addEventListener('click', (e) => { e.preventDefault(); saveDraft(refs, record); });
+  refs.saveDraftDoc.addEventListener('click', (e) => { e.preventDefault(); saveDraft(refs, record); });
+  refs.saveDraftFinal.addEventListener('click', (e) => { e.preventDefault(); saveDraft(refs, record); });
+
+  refs.sendRecord.addEventListener('click', async (e) => {
+    e.preventDefault();
     saveFormToRecord(refs, record, { keepStatus: true });
     upsertRecord(record);
     await submitRecord(record.id);
   });
 
-  app.appendChild(node);
   editingId = record.id;
 }
 
 function bindFormRefs(node) {
   return {
-    placeName: node.getElementById('placeName'),
-    municipality: node.getElementById('municipality'),
-    address: node.getElementById('address'),
-    registrar: node.getElementById('registrar'),
-    obsDate: node.getElementById('obsDate'),
-    targetTime: node.getElementById('targetTime'),
-    latitude: node.getElementById('latitude'),
-    longitude: node.getElementById('longitude'),
-    notes: node.getElementById('notes'),
-    countdown: node.getElementById('countdown'),
-    countdownVisibility: node.getElementById('countdown-visibility'),
-    photoInput: node.getElementById('photoInput'),
-    photoList: node.getElementById('photoList'),
-    documentInput: node.getElementById('documentInput'),
-    documentBox: node.getElementById('documentBox'),
-    summaryBox: node.getElementById('summaryBox'),
-    btnCaptureLocation: node.getElementById('btn-capture-location'),
-    saveDraftTop: node.getElementById('save-draft-top'),
-    saveDraftVis: node.getElementById('save-draft-vis'),
-    saveDraftPhotos: node.getElementById('save-draft-photos'),
-    saveDraftDoc: node.getElementById('save-draft-doc'),
-    saveDraftFinal: node.getElementById('save-draft-final'),
-    sendRecord: node.getElementById('send-record')
+    placeName: node.querySelector('#placeName'),
+    municipality: node.querySelector('#municipality'),
+    address: node.querySelector('#address'),
+    registrar: node.querySelector('#registrar'),
+    obsDate: node.querySelector('#obsDate'),
+    targetTime: node.querySelector('#targetTime'),
+    latitude: node.querySelector('#latitude'),
+    longitude: node.querySelector('#longitude'),
+    notes: node.querySelector('#notes'),
+    countdown: node.querySelector('#countdown'),
+    countdownVisibility: node.querySelector('#countdown-visibility'),
+    photoInput: node.querySelector('#photoInput'),
+    photoList: node.querySelector('#photoList'),
+    documentInput: node.querySelector('#documentInput'),
+    documentBox: node.querySelector('#documentBox'),
+    summaryBox: node.querySelector('#summaryBox'),
+    btnCaptureLocation: node.querySelector('#btn-capture-location'),
+    saveDraftTop: node.querySelector('#save-draft-top'),
+    saveDraftVis: node.querySelector('#save-draft-vis'),
+    saveDraftPhotos: node.querySelector('#save-draft-photos'),
+    saveDraftDoc: node.querySelector('#save-draft-doc'),
+    saveDraftFinal: node.querySelector('#save-draft-final'),
+    sendRecord: node.querySelector('#send-record')
   };
 }
 
