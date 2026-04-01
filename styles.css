@@ -160,4 +160,6 @@ button:active, .file-btn:active { transform: translateY(1px); }
   font-size: 2rem;
   line-height: 1;
   cursor: pointer;
+  pointer-events: auto;
+z-index: 10001;
 }
