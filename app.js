@@ -547,40 +547,51 @@ async function submitRecord(id, forceResend = false) {
 
   if (!API_BASE) {
     record.status = 'enviat';
-    if (!forceResend) record.sentVersions.push({ version: record.version, sentAt: new Date().toISOString(), mode: 'local-demo' });
+    if (!forceResend) {
+      record.sentVersions.push({
+        version: record.version,
+        sentAt: new Date().toISOString(),
+        mode: 'local-demo'
+      });
+    }
     upsertRecord(record);
     downloadJson(`${fileBase}.json`, payload);
-    alert(forceResend ? 'S’ha generat de nou el fitxer local de la versió actual.' : 'El registre s’ha marcat com enviat i s’ha descarregat un JSON de prova. Quan connectem el servidor, aquí es farà la pujada real.');
+    alert(forceResend
+      ? 'S’ha generat de nou el fitxer local de la versió actual.'
+      : 'El registre s’ha marcat com enviat i s’ha descarregat un JSON de prova. Quan connectem el servidor, aquí es farà la pujada real.'
+    );
     currentView = 'sent';
-window.addEventListener('DOMContentLoaded', () => {
-  initImageModal();
-  render();
-
-  if ('serviceWorker' in navigator) {
-    window.addEventListener('load', () => {
-      navigator.serviceWorker.register('./sw.js').catch(() => {});
-    });
-  }
-});
     render();
     return;
   }
 
   try {
-    const response = await fetch(`${API_BASE}/submissions`, {
+    const response = await fetch(API_BASE, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload)
     });
+
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
+
+    const result = await response.json().catch(() => ({}));
+    if (result.error) throw new Error(result.error);
+
     record.status = 'enviat';
-    if (!forceResend) record.sentVersions.push({ version: record.version, sentAt: new Date().toISOString(), mode: 'server' });
+    if (!forceResend) {
+      record.sentVersions.push({
+        version: record.version,
+        sentAt: new Date().toISOString(),
+        mode: 'server'
+      });
+    }
     upsertRecord(record);
-    alert('Registre enviat correctament.');
     currentView = 'sent';
     render();
+    return result;
   } catch (error) {
     alert(`No s'ha pogut enviar. El registre queda guardat localment.\n\n${error.message}`);
+    throw error;
   }
 }
 
@@ -598,11 +609,31 @@ function openNewVersion(id) {
 
 async function syncPending() {
   const pending = loadRecords().filter(r => ['esborrany', 'modificat'].includes(r.status));
+
   if (!pending.length) {
     alert('No hi ha registres pendents d’enviar.');
     return;
   }
-  alert(`Hi ha ${pending.length} registres pendents. La pujada automàtica quedarà activa quan connectem l’API.`);
+
+  if (!API_BASE) {
+    alert(`Hi ha ${pending.length} registres pendents. La pujada automàtica quedarà activa quan connectem l’API.`);
+    return;
+  }
+
+  let ok = 0;
+  let fail = 0;
+
+  for (const record of pending) {
+    try {
+      await submitRecord(record.id);
+      ok++;
+    } catch {
+      fail++;
+    }
+  }
+
+  alert(`Enviaments completats: ${ok}. Errors: ${fail}.`);
+  render();
 }
 
 function recalcTargetTime(refs, record) {
@@ -760,14 +791,3 @@ function downloadJson(name, data) {
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js').catch(() => {}));
 }
-
-window.addEventListener('DOMContentLoaded', () => {
-  initImageModal();
-  render();
-
-  if ('serviceWorker' in navigator) {
-    window.addEventListener('load', () => {
-      navigator.serviceWorker.register('./sw.js').catch(() => {});
-    });
-  }
-});
