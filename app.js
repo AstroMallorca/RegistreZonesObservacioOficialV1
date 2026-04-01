@@ -566,11 +566,12 @@ async function submitRecord(id, forceResend = false) {
   }
 
   try {
-    const response = await fetch(API_BASE, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
-    });
+const response = await fetch(API_BASE, {
+  method: 'POST',
+  headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+  body: JSON.stringify(payload),
+  redirect: 'follow'
+});
 
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
 
