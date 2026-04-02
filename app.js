@@ -432,9 +432,9 @@ btn.onclick = () => {
       if (['latitude','longitude'].includes(key)) {
         recalcTargetTime(refs, record);
       }
-      if (key === 'placeName') {
-        node.querySelector('#editor-title').textContent = refs.placeName.value.trim() || 'Registrar ZOO';
-      }
+if (key === 'placeName') {
+  node.querySelector('#editor-title').textContent = refs.placeName.value.trim() || '';
+}
       renderSummary(refs.summaryBox, record);
     });
   });
@@ -674,15 +674,13 @@ function initImageModal() {
   const closeBtn = document.getElementById('imageModalClose');
   const backdrop = document.getElementById('imageModalBackdrop');
 
-  if (closeBtn) {
-    closeBtn.onclick = closeImageModal;
-    closeBtn.ontouchend = closeImageModal;
-  }
+if (closeBtn) {
+  closeBtn.onclick = closeImageModal;
+}
 
-  if (backdrop) {
-    backdrop.onclick = closeImageModal;
-    backdrop.ontouchend = closeImageModal;
-  }
+if (backdrop) {
+  backdrop.onclick = closeImageModal;
+}
 
   if (modal) {
     modal.addEventListener('click', (e) => {
