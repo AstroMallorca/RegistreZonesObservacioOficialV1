@@ -214,3 +214,10 @@ button:active, .file-btn:active { transform: translateY(1px); }
   font-size: 0.9rem;
   margin-bottom: 10px;
 }
+button,
+.file-btn,
+.step-tab,
+.choice,
+.icon-btn {
+  touch-action: manipulation;
+}
