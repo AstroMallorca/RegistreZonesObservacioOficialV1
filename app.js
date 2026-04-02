@@ -335,54 +335,7 @@ refs.documentInput.addEventListener('change', async e => {
 
   e.target.value = '';
 });
-  if (!file) return;
-
-  try {
-    let src;
-    let mime = file.type;
-    let name = file.name;
-
-    if (isImageMime(file.type)) {
-      src = await fileToCompressedJpegDataUrl(file, 1600, 0.72);
-      mime = 'image/jpeg';
-      name = (file.name || 'document.jpg').replace(/\.[^.]+$/, '.jpg');
-    } else {
-      src = await fileToDataUrl(file);
-    }
-
-    record.document = {
-      id: crypto.randomUUID(),
-      name,
-      mime,
-      src,
-      createdAt: new Date().toISOString(),
-      approxBytes: estimateBase64SizeBytes(src)
-    };
-
-    markModified(record);
-
-    try {
-      upsertRecord(record);
-    } catch (err) {
-      console.error('Error guardant document:', err);
-      record.document = null;
-      alert('El document és massa gran per guardar-lo així al dispositiu.');
-      renderDocument(refs.documentBox, record);
-      renderSummary(refs.summaryBox, record);
-      e.target.value = '';
-      return;
-    }
-
-    renderDocument(refs.documentBox, record);
-    renderSummary(refs.summaryBox, record);
-  } catch (err) {
-    console.error('Error processant document:', err);
-    alert('No s’ha pogut processar el document.');
-  }
-
-  e.target.value = '';
-});
-
+ 
   refs.btnCaptureLocation.addEventListener('click', (e) => {
     e.preventDefault();
     captureLocation(refs, record);
