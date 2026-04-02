@@ -799,7 +799,7 @@ function renderSummary(container, record) {
       <div class="summary-item"><strong>Municipi</strong>${escapeHtml(record.data.municipality || '—')}</div>
       <div class="summary-item"><strong>Direcció</strong>${escapeHtml(record.data.address || '—')}</div>
       <div class="summary-item"><strong>Persona que registre</strong>${escapeHtml(record.data.registrar || '—')}</div>
-      <div class="summary-item"><strong>Data</strong>${escapeHtml(formatShortDate(record.data.obsDate) || '—')}</div>
+      <div class="summary-item"><strong>Tria la data de simulació</strong>${escapeHtml(formatShortDate(record.data.obsDate) || '—')}</div>
       <div class="summary-item"><strong>Hora objectiu</strong>${escapeHtml(record.data.targetTime || '—')}</div>
       <div class="summary-item"><strong>Visibilitat</strong>${escapeHtml(record.data.visibility || '—')}</div>
       <div class="summary-item"><strong>Zona visible</strong>${escapeHtml(record.data.visibleArea || '—')}</div>
