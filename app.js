@@ -614,7 +614,7 @@ async function submitRecord(id, forceResend = false) {
   const record = getRecord(id);
   if (!record) return;
 
-  const fileBase = `${slugify(record.data.placeName || 'zoo')}_${record.data.obsDate || '2026-04-29'}_v${record.version}`;
+  const fileBase = `${slugify(record.data.municipality || 'municipi')}_${slugify(record.data.placeName || 'zoo')}_${record.data.obsDate || '2026-04-29'}_v${record.version}`;
   const payload = { fileBase, record, exportedAt: new Date().toISOString() };
 
   if (!API_BASE) {
