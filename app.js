@@ -142,7 +142,12 @@ function renderList(title, statuses) {
         actions.appendChild(actionButton('Reenviar', 'ghost', () => submitRecord(record.id, true)));
         actions.appendChild(actionButton('Eliminar còpia local', 'ghost', () => { if (confirm('Eliminar la còpia local?')) { deleteRecord(record.id); render(); } }));
       } else {
-        actions.appendChild(actionButton('Obrir', 'secondary', () => { editingId = record.id; currentView = 'new-record'; currentStep = 'dades'; render(); }));
+        actions.appendChild(actionButton('Obrir', 'secondary', () => {
+  editingId = record.id;
+  currentView = 'new-record';
+  currentStep = 'dades';
+  render();
+}));
         actions.appendChild(actionButton('Eliminar', 'ghost', () => { if (confirm('Eliminar aquest registre?')) { deleteRecord(record.id); render(); } }));
       }
       container.appendChild(div);
@@ -186,19 +191,30 @@ function renderEditor(record) {
   fillForm(refs, record);
   activateChoiceButtons(node, record);
   applyStep(node, currentStep);
+  node.querySelectorAll('.step-tab').forEach(btn => {
+  btn.classList.toggle('active', btn.dataset.step === currentStep);
+});
   renderPhotos(refs.photoList, record);
   renderDocument(refs.documentBox, record);
   renderSummary(refs.summaryBox, record);
   recalcTargetTime(refs, record);
   startCountdown(refs.obsDate, refs.targetTime, refs.countdown, refs.countdownVisibility);
 
-  node.querySelectorAll('.step-tab').forEach(btn => {
-    btn.addEventListener('click', (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      goToStep(node, refs, record, btn.dataset.step);
-    });
+node.querySelectorAll('.step-tab').forEach(btn => {
+  btn.onclick = null;
+
+  btn.addEventListener('click', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    goToStep(node, refs, record, btn.dataset.step);
   });
+
+  btn.addEventListener('touchend', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    goToStep(node, refs, record, btn.dataset.step);
+  }, { passive: false });
+});
 
   ['placeName','municipality','address','registrar','latitude','longitude','notes'].forEach(key => {
     refs[key].addEventListener('input', () => {
@@ -365,6 +381,13 @@ function goToStep(node, refs, record, step) {
   saveFormToRecord(refs, record, { keepStatus: true });
   applyStep(node, currentStep);
   renderSummary(refs.summaryBox, record);
+
+  requestAnimationFrame(() => {
+    const activePanel = node.querySelector(`.step-panel[data-panel="${step}"]`);
+    if (activePanel) {
+      activePanel.scrollIntoView({ block: 'start', behavior: 'auto' });
+    }
+  });
 }
 function openImageModal(src) {
   const modal = document.getElementById('imageModal');
