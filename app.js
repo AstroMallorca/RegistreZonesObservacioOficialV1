@@ -648,6 +648,8 @@ const response = await fetch(API_BASE, {
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
 
     const result = await response.json().catch(() => ({}));
+    alert(JSON.stringify(result, null, 2));
+console.log(result);
     if (result.error) throw new Error(result.error);
 
     record.status = 'enviat';
