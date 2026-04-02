@@ -421,19 +421,9 @@ node.querySelector('#editor-back').addEventListener('click', (e) => {
   startCountdown(refs.obsDate, refs.targetTime, refs.countdown, refs.countdownVisibility);
 
 node.querySelectorAll('.step-tab').forEach(btn => {
-  btn.onclick = null;
-
-  btn.addEventListener('click', (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    goToStep(node, refs, record, btn.dataset.step);
-  });
-
-  btn.addEventListener('touchend', (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    goToStep(node, refs, record, btn.dataset.step);
-  }, { passive: false });
+btn.onclick = () => {
+  goToStep(node, refs, record, btn.dataset.step);
+};
 });
 
   ['placeName','municipality','address','registrar','latitude','longitude','notes'].forEach(key => {
