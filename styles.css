@@ -24,7 +24,10 @@ body {
 }
 button, input, textarea, select { font: inherit; }
 .app-shell { width: min(980px, 100%); margin: 0 auto; padding: 18px 14px 48px; }
-.hero { padding: 24px 12px 18px; text-align: center; }
+.hero {
+  padding: calc(env(safe-area-inset-top) + 24px) 12px 18px;
+  text-align: center;
+}
 .brand { font-size: .84rem; color: var(--accent-2); letter-spacing: .22em; }
 .hero h1 { margin: 6px 0 8px; font-size: clamp(2rem, 6vw, 3.2rem); line-height: 1; }
 .subtitle { margin: 0; color: var(--muted); }
@@ -176,4 +179,25 @@ button:active, .file-btn:active { transform: translateY(1px); }
   pointer-events: auto;
   touch-action: manipulation;
   -webkit-tap-highlight-color: transparent;
+}
+/* Botó principal */
+.nav.big {
+  width: 100%;
+  display: block;
+  text-align: center;
+  font-size: 1.15rem;
+  padding: 16px;
+  margin-bottom: 12px;
+}
+
+/* Fila botons petits */
+.nav-row {
+  display: flex;
+  gap: 10px;
+}
+
+.nav-row .nav {
+  flex: 1;
+  font-size: 0.95rem;
+  padding: 12px;
 }
