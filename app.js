@@ -282,24 +282,55 @@ refs.photoInput.addEventListener('change', async e => {
   e.target.value = '';
 });
 
-  refs.documentInput.addEventListener('change', async e => {
-    const file = e.target.files[0];
-    if (!file) return;
+refs.documentInput.addEventListener('change', async e => {
+  const file = e.target.files[0];
+  if (!file) return;
+
+  try {
+    let src;
+    let mime = file.type;
+    let name = file.name;
+
+    if (isImageMime(file.type)) {
+      src = await fileToCompressedJpegDataUrl(file, 1600, 0.72);
+      mime = 'image/jpeg';
+      name = (file.name || 'document.jpg').replace(/\.[^.]+$/, '.jpg');
+    } else {
+      src = await fileToDataUrl(file);
+    }
 
     record.document = {
       id: crypto.randomUUID(),
-      name: file.name,
-      mime: file.type,
-      src: await fileToDataUrl(file),
-      createdAt: new Date().toISOString()
+      name,
+      mime,
+      src,
+      createdAt: new Date().toISOString(),
+      approxBytes: estimateBase64SizeBytes(src)
     };
 
     markModified(record);
-    upsertRecord(record);
+
+    try {
+      upsertRecord(record);
+    } catch (err) {
+      console.error('Error guardant document:', err);
+      record.document = null;
+      alert('El document és massa gran per guardar-lo així al dispositiu.');
+      renderDocument(refs.documentBox, record);
+      renderSummary(refs.summaryBox, record);
+      e.target.value = '';
+      return;
+    }
+
     renderDocument(refs.documentBox, record);
     renderSummary(refs.summaryBox, record);
-    e.target.value = '';
-  });
+  } catch (err) {
+    console.error('Error processant document:', err);
+    alert('No s’ha pogut processar el document.');
+  }
+
+  e.target.value = '';
+});
 
   refs.btnCaptureLocation.addEventListener('click', (e) => {
     e.preventDefault();
@@ -474,30 +505,56 @@ function renderPhotos(container, record) {
 
 function renderDocument(container, record) {
   container.className = 'media-list';
+
   if (!record.document) {
     container.classList.add('empty');
     container.textContent = 'No hi ha cap document adjunt.';
     return;
   }
+
   container.innerHTML = '';
+  const doc = record.document;
+
   const div = document.createElement('div');
   div.className = 'record-card';
-  div.innerHTML = `<h3>${escapeHtml(record.document.name)}</h3><div class="tiny">${record.document.mime || 'document'}</div>`;
+
+  let previewHtml = '';
+  if (isImageMime(doc.mime)) {
+    previewHtml = `
+      <div style="margin:0 0 10px;">
+        <img
+          src="${doc.src}"
+          alt="${escapeHtml(doc.name)}"
+          style="display:block;width:100%;max-height:220px;object-fit:cover;border-radius:14px;background:#000;"
+        >
+      </div>
+    `;
+  }
+
+  div.innerHTML = `
+    ${previewHtml}
+    <h3>${escapeHtml(doc.name)}</h3>
+    <div class="tiny">${escapeHtml(doc.mime || 'document')}</div>
+  `;
+
   const actions = document.createElement('div');
   actions.className = 'footer-actions';
+
   actions.appendChild(actionButton('Veure', 'ghost', () => {
-  if ((record.document.mime || '').startsWith('image/')) {
-    openImageModal(record.document.src);
-  } else {
-    window.open(record.document.src, '_blank');
-  }
-}));
+    openDocumentFile(doc);
+  }));
+
   actions.appendChild(actionButton('Eliminar', 'ghost', () => {
     record.document = null;
     markModified(record);
     upsertRecord(record);
     renderDocument(container, record);
+    if (container.closest('.card')) {
+      const summaryBox = container.closest('.card').querySelector('#summaryBox');
+      if (summaryBox) renderSummary(summaryBox, record);
+    }
   }));
+
   div.appendChild(actions);
   container.appendChild(div);
 }
@@ -776,6 +833,37 @@ function fileToCompressedJpegDataUrl(file, maxSize = 1600, quality = 0.72) {
 function estimateBase64SizeBytes(dataUrl) {
   const base64 = dataUrl.split(',')[1] || '';
   return Math.ceil(base64.length * 3 / 4);
+}
+function isImageMime(mime) {
+  return String(mime || '').startsWith('image/');
+}
+
+function dataUrlToBlobUrl(dataUrl) {
+  const parts = dataUrl.split(',');
+  const meta = parts[0] || '';
+  const base64 = parts[1] || '';
+  const mimeMatch = meta.match(/data:(.*?);base64/);
+  const mime = mimeMatch ? mimeMatch[1] : 'application/octet-stream';
+
+  const bytes = Uint8Array.from(atob(base64), c => c.charCodeAt(0));
+  const blob = new Blob([bytes], { type: mime });
+  return URL.createObjectURL(blob);
+}
+
+function openDocumentFile(doc) {
+  if (!doc || !doc.src) return;
+
+  if (isImageMime(doc.mime)) {
+    openImageModal(doc.src);
+    return;
+  }
+
+  const blobUrl = dataUrlToBlobUrl(doc.src);
+  window.open(blobUrl, '_blank');
+
+  setTimeout(() => {
+    URL.revokeObjectURL(blobUrl);
+  }, 60000);
 }
 function formatDateTime(iso) {
   try { return new Date(iso).toLocaleString('ca-ES'); }
