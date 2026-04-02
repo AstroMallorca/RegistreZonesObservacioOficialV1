@@ -289,12 +289,6 @@ refs.photoInput.addEventListener('change', async e => {
     captureLocation(refs, record);
   });
 
-  refs.saveDraftTop.addEventListener('click', (e) => { e.preventDefault(); saveDraft(refs, record); });
-  refs.saveDraftVis.addEventListener('click', (e) => { e.preventDefault(); saveDraft(refs, record); });
-  refs.saveDraftPhotos.addEventListener('click', (e) => { e.preventDefault(); saveDraft(refs, record); });
-  refs.saveDraftDoc.addEventListener('click', (e) => { e.preventDefault(); saveDraft(refs, record); });
-  refs.saveDraftFinal.addEventListener('click', (e) => { e.preventDefault(); saveDraft(refs, record); });
-
   refs.sendRecord.addEventListener('click', async (e) => {
     e.preventDefault();
     saveFormToRecord(refs, record, { keepStatus: true });
@@ -324,11 +318,6 @@ function bindFormRefs(node) {
     documentBox: node.querySelector('#documentBox'),
     summaryBox: node.querySelector('#summaryBox'),
     btnCaptureLocation: node.querySelector('#btn-capture-location'),
-    saveDraftTop: node.querySelector('#save-draft-top'),
-    saveDraftVis: node.querySelector('#save-draft-vis'),
-    saveDraftPhotos: node.querySelector('#save-draft-photos'),
-    saveDraftDoc: node.querySelector('#save-draft-doc'),
-    saveDraftFinal: node.querySelector('#save-draft-final'),
     sendRecord: node.querySelector('#send-record')
   };
 }
