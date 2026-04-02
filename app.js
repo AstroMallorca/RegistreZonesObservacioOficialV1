@@ -272,42 +272,92 @@ function showHelpModal() {
           ">✕</button>
         </div>
 
-        <div style="font-size:.95rem;line-height:1.5;color:#cfe3ff;">
-        
+       <div style="font-size:.95rem;line-height:1.55;color:#cfe3ff;">
+
 <h3>🌍 Què és aquesta app?</h3>
-<p>Aquesta aplicació serveix per registrar zones candidates d’observació (ZOO) per a l’eclipsi.</p>
+<p>Aquesta aplicació serveix per <strong>registrar zones candidates d’observació (ZOO)</strong> per a l’eclipsi. Permet recollir informació de camp amb fotos i documents.</p>
 
 <h3>🚀 Com començar</h3>
-<p>Entra a “Registrar ZOO” per crear un nou registre.</p>
+<p>A la pantalla inicial trobaràs:</p>
+<ul>
+<li><strong>Registrar ZOO</strong> → crear un nou registre</li>
+<li><strong>Editar ZOO</strong> → modificar registres</li>
+<li><strong>Enviats</strong> → registres ja enviats</li>
+</ul>
 
-<h3>🧭 Funcionament</h3>
+<h3>🧭 Funcionament general</h3>
 <p>L’app guarda automàticament mentre escrius. No cal guardar manualment.</p>
 
-<h3>📝 Dades</h3>
-<p>Introdueix informació del lloc i captura la ubicació amb GPS.</p>
+<h3>📝 1. DADES</h3>
+<ul>
+<li>Nom del lloc</li>
+<li>Municipi</li>
+<li>Direcció</li>
+<li>Persona que registra</li>
+<li>Data</li>
+<li>Coordenades</li>
+</ul>
+
+<h4>📍 Ubicació</h4>
+<p>Pots escriure coordenades o usar <strong>“Capturar ubicació”</strong>.</p>
 
 <h3>⏱️ Hora objectiu</h3>
-<p>Es calcula automàticament segons la posició del Sol.</p>
+<p>L’app calcula automàticament quan el Sol estarà a la mateixa altura que el màxim de l’eclipsi.</p>
 
-<h3>👁️ Visibilitat</h3>
-<p>Indica si el lloc és apte i descriu condicions.</p>
+<h3>👁️ 2. VISIBILITAT</h3>
+<p>Defineix si la zona és apta i les seves condicions.</p>
 
-<h3>📸 Fotos</h3>
-<p>Pots afegir múltiples fotos del lloc.</p>
+<h3>📸 3. FOTOS</h3>
+<p>Pots afegir múltiples fotos del lloc. Es comprimeixen automàticament.</p>
 
-<h3>📄 Documents</h3>
-<p>Pots adjuntar PDFs o imatges.</p>
+<h3>📄 4. DOCUMENT</h3>
+<p>Pots afegir PDFs o imatges complementàries.</p>
 
-<h3>📤 Enviar</h3>
-<p>En enviar, es guarden dades, fotos i documents al sistema central.</p>
+<h3>📦 RESUM</h3>
+<p>Veus totes les dades abans d’enviar.</p>
 
-<h3>⚠️ Important</h3>
-<p>Si no introdueixes cap dada, el registre no es guarda.</p>
+<h3>📤 ENVIAR REGISTRE</h3>
+<p>En enviar:</p>
+<ul>
+<li>es guarden dades</li>
+<li>fotos i documents</li>
+<li>es crea carpeta al sistema</li>
+<li>s’afegeix a l’Excel</li>
+</ul>
 
-<h3>🛰️ Objectiu</h3>
+<h3>✏️ EDITAR</h3>
+<p>Pots modificar registres abans d’enviar.</p>
+
+<h3>🔁 NOVA VERSIÓ</h3>
+<p>Permet reenviar amb canvis mantenint historial.</p>
+
+<h3>⚠️ IMPORTANT</h3>
+<ul>
+<li>Si no introdueixes dades → no es guarda</li>
+<li>Funciona offline però cal internet per enviar</li>
+</ul>
+
+<h3>🧠 Recomanacions</h3>
+<ul>
+<li>Comprova horitzó real</li>
+<li>Fes fotos clares</li>
+<li>Anota obstacles</li>
+<li>Revisa accessos</li>
+</ul>
+
+<h3>🛰️ Objectiu final</h3>
 <p>Crear un mapa de zones òptimes d’observació.</p>
 
-        </div>
+<h3>❓ Problemes</h3>
+<ul>
+<li>GPS → revisa permisos</li>
+<li>No envia → revisa connexió</li>
+</ul>
+
+<h3>🌌 AstroMallorca</h3>
+<p>Gràcies per la teva col·laboració 🙌</p>
+
+</div>
       </div>
     `;
 
@@ -1259,7 +1309,13 @@ window.addEventListener('DOMContentLoaded', () => {
 
   initImageModal();
   render();
-
+// Mostrar ajuda només la primera vegada
+if (!localStorage.getItem('zooHelpShown')) {
+  setTimeout(() => {
+    showHelpModal();
+    localStorage.setItem('zooHelpShown', '1');
+  }, 500);
+}
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
       navigator.serviceWorker.register('./sw.js').catch(() => {});
