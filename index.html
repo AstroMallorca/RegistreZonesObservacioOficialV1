@@ -175,18 +175,18 @@
         </label>
       </section>
 
-      <section class="step-panel" data-panel="fotos">
-        <div class="subcard stack-sm">
-          <div class="section-head compact wrap-mobile">
-            <h3>Fotografies del lloc</h3>
-            <label class="primary file-btn">
-              Fer / Afegir foto
-              <input type="file" id="documentInput" accept=".pdf,image/*" multiple hidden>
-            </label>
-          </div>
-          <div id="photoList" class="photo-grid empty">Encara no hi ha fotos.</div>
-        </div>
-      </section>
+<section class="step-panel" data-panel="fotos">
+  <div class="subcard stack-sm">
+    <div class="section-head compact wrap-mobile">
+      <h3>Fotografies del lloc</h3>
+      <label class="primary file-btn">
+        Fer / Afegir foto
+        <input type="file" id="photoInput" accept="image/*" capture="environment" multiple hidden>
+      </label>
+    </div>
+    <div id="photoList" class="photo-grid empty">Encara no hi ha fotos.</div>
+  </div>
+</section>
 
       <section class="step-panel" data-panel="document">
         <div class="subcard stack-sm">
@@ -194,7 +194,7 @@
             <h3>Document adjunt</h3>
             <label class="primary file-btn">
               Adjuntar document
-              <input type="file" id="documentInput" accept=".pdf,image/*" hidden>
+              <input type="file" id="documentInput" accept=".pdf,image/*" multiple hidden>
             </label>
           </div>
           <div id="documentBox" class="media-list empty">No hi ha cap document adjunt.</div>
