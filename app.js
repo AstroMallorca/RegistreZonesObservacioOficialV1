@@ -165,7 +165,74 @@ function actionButton(label, cls, onClick) {
   btn.addEventListener('click', onClick);
   return btn;
 }
+function showSendingOverlay(message = 'Enviant dades…') {
+  let overlay = document.getElementById('sendingOverlay');
 
+  if (!overlay) {
+    overlay = document.createElement('div');
+    overlay.id = 'sendingOverlay';
+    overlay.style.position = 'fixed';
+    overlay.style.inset = '0';
+    overlay.style.zIndex = '20000';
+    overlay.style.background = 'rgba(2, 8, 18, 0.82)';
+    overlay.style.backdropFilter = 'blur(6px)';
+    overlay.style.display = 'flex';
+    overlay.style.alignItems = 'center';
+    overlay.style.justifyContent = 'center';
+    overlay.style.padding = '24px';
+
+    overlay.innerHTML = `
+      <div style="
+        width:min(420px, 100%);
+        background:rgba(12, 25, 43, .96);
+        border:1px solid rgba(255,255,255,.12);
+        border-radius:22px;
+        box-shadow:0 16px 40px rgba(0,0,0,.28);
+        padding:24px 20px;
+        text-align:center;
+        color:#edf4ff;
+      ">
+        <div style="
+          width:42px;
+          height:42px;
+          margin:0 auto 16px;
+          border:4px solid rgba(255,255,255,.18);
+          border-top-color:#7dc8ff;
+          border-radius:50%;
+          animation:zooSpin 1s linear infinite;
+        "></div>
+        <div id="sendingOverlayText" style="font-size:1.05rem;font-weight:700;">${message}</div>
+        <div style="margin-top:8px;color:#aac0dd;font-size:.92rem;">Esperant confirmació del servidor…</div>
+      </div>
+    `;
+
+    document.body.appendChild(overlay);
+
+    if (!document.getElementById('sendingOverlayStyle')) {
+      const style = document.createElement('style');
+      style.id = 'sendingOverlayStyle';
+      style.textContent = `
+        @keyframes zooSpin {
+          from { transform: rotate(0deg); }
+          to { transform: rotate(360deg); }
+        }
+      `;
+      document.head.appendChild(style);
+    }
+  } else {
+    overlay.style.display = 'flex';
+    const text = document.getElementById('sendingOverlayText');
+    if (text) text.textContent = message;
+  }
+
+  document.body.style.overflow = 'hidden';
+}
+
+function hideSendingOverlay() {
+  const overlay = document.getElementById('sendingOverlay');
+  if (overlay) overlay.style.display = 'none';
+  document.body.style.overflow = '';
+}
 function renderEditor(record) {
   if (!record) {
     editingId = null;
@@ -638,31 +705,32 @@ async function submitRecord(id, forceResend = false) {
   }
 
   try {
-const response = await fetch(API_BASE, {
-  method: 'POST',
-  headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-  body: JSON.stringify(payload),
-  redirect: 'follow'
-});
+    showSendingOverlay('Enviant dades…');
 
-const rawText = await response.text();
-let result = {};
+    const response = await fetch(API_BASE, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify(payload),
+      redirect: 'follow'
+    });
 
-try {
-  result = rawText ? JSON.parse(rawText) : {};
-} catch {
-  result = { raw: rawText };
-}
+    const rawText = await response.text();
+    let result = {};
 
-console.log('HTTP status:', response.status);
-console.log('Resposta servidor:', result);
+    try {
+      result = rawText ? JSON.parse(rawText) : {};
+    } catch {
+      result = { raw: rawText };
+    }
 
-if (!response.ok) {
-  throw new Error(result.error || result.raw || `HTTP ${response.status}`);
-}
+    console.log('HTTP status:', response.status);
+    console.log('Resposta servidor:', result);
 
-alert(JSON.stringify(result, null, 2));
-if (result.error) throw new Error(result.error);
+    if (!response.ok) {
+      throw new Error(result.error || result.raw || `HTTP ${response.status}`);
+    }
+
+    if (result.error) throw new Error(result.error);
 
     record.status = 'enviat';
     if (!forceResend) {
@@ -677,8 +745,11 @@ if (result.error) throw new Error(result.error);
     render();
     return result;
   } catch (error) {
+    hideSendingOverlay();
     alert(`No s'ha pogut enviar. El registre queda guardat localment.\n\n${error.message}`);
     throw error;
+  } finally {
+    hideSendingOverlay();
   }
 }
 
