@@ -393,7 +393,7 @@ function renderEditor(record) {
   const node = app.querySelector('.card.stack-md');
   const refs = bindFormRefs(node);
 
-  node.querySelector('#editor-title').textContent = record.data.placeName || 'Registrar ZOO';
+  node.querySelector('#editor-title').textContent = record.data.placeName || '';
   node.querySelector('#editor-meta').textContent = `${record.status} · v${record.version}`;
 
 node.querySelector('#editor-back').addEventListener('click', (e) => {
