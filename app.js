@@ -6,7 +6,6 @@ let currentView = 'home';
 let currentStep = 'dades';
 let editingId = null;
 let countdownTimer = null;
-let horizonEngine = null;
 const emptyRecord = () => ({
   id: crypto.randomUUID(),
   status: 'esborrany',
@@ -1047,9 +1046,19 @@ function getSimulationLocalTime(dateStr, lat, lon) {
 }
 
 function getReferenceEclipseMaxAltitude(lat, lon) {
-  // màxim aproximat de l’eclipsi a Mallorca: 12/08/2026 cap a les 20:31:30 hora local
-  const refUtc = localPartsToUtcDate(2026, 8, 12, 20, 31, 30);
-  return getSolarAltitude(refUtc, lat, lon);
+  if (!window.Astronomy) return NaN;
+
+  try {
+    const observer = new Astronomy.Observer(lat, lon, 0);
+    const eclipse = Astronomy.SearchLocalSolarEclipse(new Date('2026-08-12T00:00:00Z'), observer);
+
+    if (!eclipse || !eclipse.peak || !eclipse.peak.time) return NaN;
+
+    return getSolarAltitude(eclipse.peak.time, lat, lon);
+  } catch (err) {
+    console.error('Error calculant màxim local real de l’eclipsi:', err);
+    return NaN;
+  }
 }
 
 function findLocalTimeForSolarAltitude(dateStr, lat, lon, targetAltitude) {
@@ -1058,11 +1067,11 @@ function findLocalTimeForSolarAltitude(dateStr, lat, lon, targetAltitude) {
 
   let best = null;
 
-  // cercam només dins la franja útil de capvespre
-  const startSeconds = (19 * 3600) + (30 * 60);
-  const endSeconds = (21 * 3600) + (0 * 60);
+  // franja útil real del capvespre per evitar solucions absurdes
+  const startSeconds = (19 * 3600) + (45 * 60);
+  const endSeconds = (20 * 3600) + (45 * 60);
 
-  for (let seconds = startSeconds; seconds <= endSeconds; seconds += 5) {
+  for (let seconds = startSeconds; seconds <= endSeconds; seconds += 1) {
     const h = Math.floor(seconds / 3600);
     const m = Math.floor((seconds % 3600) / 60);
     const s = seconds % 60;
@@ -1075,7 +1084,7 @@ function findLocalTimeForSolarAltitude(dateStr, lat, lon, targetAltitude) {
     const diff = Math.abs(altitude - targetAltitude);
 
     if (!best || diff < best.diff) {
-      best = { diff, hours: h, minutes: m, seconds: s };
+      best = { diff, hours: h, minutes: m, seconds: s, altitude };
     }
   }
 
@@ -1083,60 +1092,22 @@ function findLocalTimeForSolarAltitude(dateStr, lat, lon, targetAltitude) {
 }
 
 function getSolarAltitude(dateObj, lat, lon) {
-  const jd = dateObj.getTime() / 86400000 + 2440587.5;
-  const T = (jd - 2451545.0) / 36525.0;
+  if (!window.Astronomy) return NaN;
 
-  let L0 = 280.46646 + T * (36000.76983 + T * 0.0003032);
-  L0 = normalizeDegrees(L0);
+  try {
+    const jsDate = dateObj instanceof Date
+      ? dateObj
+      : new Date(dateObj.date || dateObj.ut || dateObj.toString());
 
-  const M = 357.52911 + T * (35999.05029 - 0.0001537 * T);
+    const observer = new Astronomy.Observer(lat, lon, 0);
+    const eq = Astronomy.Equator('Sun', jsDate, observer, true, true);
+    const hor = Astronomy.Horizon(jsDate, observer, eq.ra, eq.dec, 'normal');
 
-  const C =
-    Math.sin(degToRad(M)) * (1.914602 - T * (0.004817 + 0.000014 * T)) +
-    Math.sin(degToRad(2 * M)) * (0.019993 - 0.000101 * T) +
-    Math.sin(degToRad(3 * M)) * 0.000289;
-
-  const trueLong = L0 + C;
-  const omega = 125.04 - 1934.136 * T;
-  const lambda = trueLong - 0.00569 - 0.00478 * Math.sin(degToRad(omega));
-
-  const epsilon0 =
-    23 +
-    (26 + ((21.448 - T * (46.815 + T * (0.00059 - T * 0.001813))) / 60)) / 60;
-
-  const epsilon = epsilon0 + 0.00256 * Math.cos(degToRad(omega));
-
-  const decl = radToDeg(
-    Math.asin(Math.sin(degToRad(epsilon)) * Math.sin(degToRad(lambda)))
-  );
-
-  const raHours = normalizeDegrees(
-    radToDeg(
-      Math.atan2(
-        Math.cos(degToRad(epsilon)) * Math.sin(degToRad(lambda)),
-        Math.cos(degToRad(lambda))
-      )
-    )
-  ) / 15;
-
-  const gmstHours = normalizeDegrees(
-    280.46061837 +
-    360.98564736629 * (jd - 2451545) +
-    0.000387933 * T * T -
-    (T * T * T) / 38710000
-  ) / 15;
-
-  const lstHours = gmstHours + lon / 15;
-  const hourAngleDeg = normalizeHourAngleHours(lstHours - raHours) * 15;
-
-  const altitude = radToDeg(
-    Math.asin(
-      Math.sin(degToRad(lat)) * Math.sin(degToRad(decl)) +
-      Math.cos(degToRad(lat)) * Math.cos(degToRad(decl)) * Math.cos(degToRad(hourAngleDeg))
-    )
-  );
-
-  return applyRefractionToAltitude(altitude);
+    return Number(hor.altitude);
+  } catch (err) {
+    console.error('Error calculant altura solar amb Astronomy:', err);
+    return NaN;
+  }
 }
 
 function applyRefractionToAltitude(altitude) {
@@ -1297,25 +1268,24 @@ function downloadJson(name, data) {
   a.href = url; a.download = name; a.click();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
-
 window.addEventListener('DOMContentLoaded', () => {
-  if (window.HorizonEngine) {
-    try {
-      horizonEngine = new window.HorizonEngine();
-    } catch (err) {
-      console.error('No s’ha pogut inicialitzar HorizonEngine:', err);
-    }
-  }
-
   initImageModal();
   render();
-// Mostrar ajuda només la primera vegada
-if (!localStorage.getItem('zooHelpShown')) {
-  setTimeout(() => {
-    showHelpModal();
-    localStorage.setItem('zooHelpShown', '1');
-  }, 500);
-}
+
+  // Mostrar ajuda només la primera vegada
+  if (!localStorage.getItem('zooHelpShown')) {
+    setTimeout(() => {
+      showHelpModal();
+      localStorage.setItem('zooHelpShown', '1');
+    }, 500);
+  }
+
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('./sw.js').catch(() => {});
+    });
+  }
+});
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
       navigator.serviceWorker.register('./sw.js').catch(() => {});
