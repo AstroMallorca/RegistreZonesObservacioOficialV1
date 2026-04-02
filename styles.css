@@ -165,3 +165,15 @@ button:active, .file-btn:active { transform: translateY(1px); }
   pointer-events: auto;
   z-index: 10001;
 }
+.step-tabs {
+  position: relative;
+  z-index: 20;
+}
+
+.step-tab {
+  position: relative;
+  z-index: 21;
+  pointer-events: auto;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
