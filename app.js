@@ -6,7 +6,7 @@ let currentView = 'home';
 let currentStep = 'dades';
 let editingId = null;
 let countdownTimer = null;
-
+let horizonEngine = null;
 const emptyRecord = () => ({
   id: crypto.randomUUID(),
   status: 'esborrany',
@@ -715,7 +715,11 @@ function recalcTargetTime(refs, record) {
   const lat = parseFloat(refs.latitude.value);
   const lon = parseFloat(refs.longitude.value);
   const date = refs.obsDate.value;
-  const target = Number.isFinite(lat) && Number.isFinite(lon) && date ? getSunsetLocalTime(date, lat, lon) : '';
+
+  const target = Number.isFinite(lat) && Number.isFinite(lon) && date
+    ? getSimulationLocalTime(date, lat, lon)
+    : '';
+
   refs.targetTime.value = target || '';
   record.data.targetTime = target || '';
   upsertRecord(record);
@@ -777,6 +781,161 @@ function getSunsetLocalTime(dateStr, lat, lon) {
     hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false
   }).format(utcDate);
 }
+function getSimulationLocalTime(dateStr, lat, lon) {
+  const targetAltitude = getReferenceEclipseMaxAltitude(lat, lon);
+  if (!Number.isFinite(targetAltitude)) return '';
+
+  const best = findLocalTimeForSolarAltitude(dateStr, lat, lon, targetAltitude);
+  if (!best) return '';
+
+  return formatTimeParts(best.hours, best.minutes, best.seconds);
+}
+
+function getReferenceEclipseMaxAltitude(lat, lon) {
+  const eclipseDate = new Date('2026-08-12T18:30:00Z');
+  return getSolarAltitude(eclipseDate, lat, lon);
+}
+
+function findLocalTimeForSolarAltitude(dateStr, lat, lon, targetAltitude) {
+  const [year, month, day] = dateStr.split('-').map(Number);
+  if (!year || !month || !day) return null;
+
+  let best = null;
+
+  for (let seconds = 0; seconds < 24 * 3600; seconds += 5) {
+    const h = Math.floor(seconds / 3600);
+    const m = Math.floor((seconds % 3600) / 60);
+    const s = seconds % 60;
+
+    const utcDate = localPartsToUtcDate(year, month, day, h, m, s);
+    const altitude = getSolarAltitude(utcDate, lat, lon);
+
+    if (!Number.isFinite(altitude)) continue;
+
+    const diff = Math.abs(altitude - targetAltitude);
+
+    if (!best || diff < best.diff) {
+      best = { diff, hours: h, minutes: m, seconds: s, altitude };
+    }
+  }
+
+  return best;
+}
+
+function getSolarAltitude(dateObj, lat, lon) {
+  const jd = dateObj.getTime() / 86400000 + 2440587.5;
+  const T = (jd - 2451545.0) / 36525.0;
+
+  let L0 = 280.46646 + T * (36000.76983 + T * 0.0003032);
+  L0 = normalizeDegrees(L0);
+
+  const M = 357.52911 + T * (35999.05029 - 0.0001537 * T);
+  const e = 0.016708634 - T * (0.000042037 + 0.0000001267 * T);
+
+  const C =
+    Math.sin(degToRad(M)) * (1.914602 - T * (0.004817 + 0.000014 * T)) +
+    Math.sin(degToRad(2 * M)) * (0.019993 - 0.000101 * T) +
+    Math.sin(degToRad(3 * M)) * 0.000289;
+
+  const trueLong = L0 + C;
+  const omega = 125.04 - 1934.136 * T;
+  const lambda = trueLong - 0.00569 - 0.00478 * Math.sin(degToRad(omega));
+
+  const epsilon0 =
+    23 +
+    (26 + ((21.448 - T * (46.815 + T * (0.00059 - T * 0.001813))) / 60)) / 60;
+
+  const epsilon = epsilon0 + 0.00256 * Math.cos(degToRad(omega));
+
+  const decl =
+    radToDeg(
+      Math.asin(Math.sin(degToRad(epsilon)) * Math.sin(degToRad(lambda)))
+    );
+
+  const ra =
+    normalizeDegrees(
+      radToDeg(
+        Math.atan2(
+          Math.cos(degToRad(epsilon)) * Math.sin(degToRad(lambda)),
+          Math.cos(degToRad(lambda))
+        )
+      )
+    ) / 15;
+
+  const gmst =
+    normalizeDegrees(
+      280.46061837 +
+      360.98564736629 * (jd - 2451545) +
+      0.000387933 * T * T -
+      (T * T * T) / 38710000
+    ) / 15;
+
+  const lst = gmst + lon / 15;
+  const hourAngle = normalizeHours(lst - ra) * 15;
+
+  const altitude = radToDeg(
+    Math.asin(
+      Math.sin(degToRad(lat)) * Math.sin(degToRad(decl)) +
+      Math.cos(degToRad(lat)) * Math.cos(degToRad(decl)) * Math.cos(degToRad(hourAngle))
+    )
+  );
+
+  return applyRefractionToAltitude(altitude);
+}
+
+function applyRefractionToAltitude(altitude) {
+  if (!Number.isFinite(altitude)) return altitude;
+  if (altitude <= -1) return altitude;
+
+  const correction =
+    1.02 / Math.tan(degToRad(altitude + 10.3 / (altitude + 5.11))) / 60;
+
+  return altitude + correction;
+}
+
+function localPartsToUtcDate(year, month, day, hours, minutes, seconds) {
+  const approxUtc = new Date(Date.UTC(year, month - 1, day, hours, minutes, seconds));
+
+  const dtf = new Intl.DateTimeFormat('en-GB', {
+    timeZone: TZ,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false
+  });
+
+  const parts = Object.fromEntries(
+    dtf.formatToParts(approxUtc).map(p => [p.type, p.value])
+  );
+
+  const shownUtc = Date.UTC(
+    Number(parts.year),
+    Number(parts.month) - 1,
+    Number(parts.day),
+    Number(parts.hour),
+    Number(parts.minute),
+    Number(parts.second)
+  );
+
+  const wantedUtc = Date.UTC(year, month - 1, day, hours, minutes, seconds);
+  const diffMs = shownUtc - wantedUtc;
+
+  return new Date(approxUtc.getTime() - diffMs);
+}
+
+function formatTimeParts(hours, minutes, seconds) {
+  return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+}
+
+function normalizeHours(v) {
+  let out = v % 24;
+  if (out < 0) out += 24;
+  if (out > 12) out -= 24;
+  return out;
+}
 
 function dayOfYear(y, m, d) {
   const start = Date.UTC(y, 0, 0);
@@ -786,6 +945,161 @@ function dayOfYear(y, m, d) {
 function degToRad(v) { return v * Math.PI / 180; }
 function radToDeg(v) { return v * 180 / Math.PI; }
 function normalizeDegrees(v) { return ((v % 360) + 360) % 360; }
+
+function getSimulationLocalTime(dateStr, lat, lon) {
+  const targetAltitude = getReferenceEclipseMaxAltitude(lat, lon);
+  if (!Number.isFinite(targetAltitude)) return '';
+
+  const best = findLocalTimeForSolarAltitude(dateStr, lat, lon, targetAltitude);
+  if (!best) return '';
+
+  return formatTimeParts(best.hours, best.minutes, best.seconds);
+}
+
+function getReferenceEclipseMaxAltitude(lat, lon) {
+  // màxim aproximat de l’eclipsi a Mallorca: 12/08/2026 cap a les 20:31:30 hora local
+  const refUtc = localPartsToUtcDate(2026, 8, 12, 20, 31, 30);
+  return getSolarAltitude(refUtc, lat, lon);
+}
+
+function findLocalTimeForSolarAltitude(dateStr, lat, lon, targetAltitude) {
+  const [year, month, day] = dateStr.split('-').map(Number);
+  if (!year || !month || !day) return null;
+
+  let best = null;
+
+  // cercam només dins la franja útil de capvespre
+  const startSeconds = (19 * 3600) + (30 * 60);
+  const endSeconds = (21 * 3600) + (0 * 60);
+
+  for (let seconds = startSeconds; seconds <= endSeconds; seconds += 5) {
+    const h = Math.floor(seconds / 3600);
+    const m = Math.floor((seconds % 3600) / 60);
+    const s = seconds % 60;
+
+    const utcDate = localPartsToUtcDate(year, month, day, h, m, s);
+    const altitude = getSolarAltitude(utcDate, lat, lon);
+
+    if (!Number.isFinite(altitude)) continue;
+
+    const diff = Math.abs(altitude - targetAltitude);
+
+    if (!best || diff < best.diff) {
+      best = { diff, hours: h, minutes: m, seconds: s };
+    }
+  }
+
+  return best;
+}
+
+function getSolarAltitude(dateObj, lat, lon) {
+  const jd = dateObj.getTime() / 86400000 + 2440587.5;
+  const T = (jd - 2451545.0) / 36525.0;
+
+  let L0 = 280.46646 + T * (36000.76983 + T * 0.0003032);
+  L0 = normalizeDegrees(L0);
+
+  const M = 357.52911 + T * (35999.05029 - 0.0001537 * T);
+
+  const C =
+    Math.sin(degToRad(M)) * (1.914602 - T * (0.004817 + 0.000014 * T)) +
+    Math.sin(degToRad(2 * M)) * (0.019993 - 0.000101 * T) +
+    Math.sin(degToRad(3 * M)) * 0.000289;
+
+  const trueLong = L0 + C;
+  const omega = 125.04 - 1934.136 * T;
+  const lambda = trueLong - 0.00569 - 0.00478 * Math.sin(degToRad(omega));
+
+  const epsilon0 =
+    23 +
+    (26 + ((21.448 - T * (46.815 + T * (0.00059 - T * 0.001813))) / 60)) / 60;
+
+  const epsilon = epsilon0 + 0.00256 * Math.cos(degToRad(omega));
+
+  const decl = radToDeg(
+    Math.asin(Math.sin(degToRad(epsilon)) * Math.sin(degToRad(lambda)))
+  );
+
+  const raHours = normalizeDegrees(
+    radToDeg(
+      Math.atan2(
+        Math.cos(degToRad(epsilon)) * Math.sin(degToRad(lambda)),
+        Math.cos(degToRad(lambda))
+      )
+    )
+  ) / 15;
+
+  const gmstHours = normalizeDegrees(
+    280.46061837 +
+    360.98564736629 * (jd - 2451545) +
+    0.000387933 * T * T -
+    (T * T * T) / 38710000
+  ) / 15;
+
+  const lstHours = gmstHours + lon / 15;
+  const hourAngleDeg = normalizeHourAngleHours(lstHours - raHours) * 15;
+
+  const altitude = radToDeg(
+    Math.asin(
+      Math.sin(degToRad(lat)) * Math.sin(degToRad(decl)) +
+      Math.cos(degToRad(lat)) * Math.cos(degToRad(decl)) * Math.cos(degToRad(hourAngleDeg))
+    )
+  );
+
+  return applyRefractionToAltitude(altitude);
+}
+
+function applyRefractionToAltitude(altitude) {
+  if (!Number.isFinite(altitude)) return altitude;
+  if (altitude <= -1) return altitude;
+
+  const correction = 1.02 / Math.tan(degToRad(altitude + 10.3 / (altitude + 5.11))) / 60;
+  return altitude + correction;
+}
+
+function localPartsToUtcDate(year, month, day, hours, minutes, seconds) {
+  const approxUtc = new Date(Date.UTC(year, month - 1, day, hours, minutes, seconds));
+
+  const dtf = new Intl.DateTimeFormat('en-GB', {
+    timeZone: TZ,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false
+  });
+
+  const parts = Object.fromEntries(
+    dtf.formatToParts(approxUtc).map(p => [p.type, p.value])
+  );
+
+  const shownUtc = Date.UTC(
+    Number(parts.year),
+    Number(parts.month) - 1,
+    Number(parts.day),
+    Number(parts.hour),
+    Number(parts.minute),
+    Number(parts.second)
+  );
+
+  const wantedUtc = Date.UTC(year, month - 1, day, hours, minutes, seconds);
+  const diffMs = shownUtc - wantedUtc;
+
+  return new Date(approxUtc.getTime() - diffMs);
+}
+
+function formatTimeParts(hours, minutes, seconds) {
+  return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+}
+
+function normalizeHourAngleHours(v) {
+  let out = v % 24;
+  if (out < 0) out += 24;
+  if (out > 12) out -= 24;
+  return out;
+}
 
 function fileToDataUrl(file) {
   return new Promise((resolve, reject) => {
@@ -895,6 +1209,14 @@ function downloadJson(name, data) {
 }
 
 window.addEventListener('DOMContentLoaded', () => {
+  if (window.HorizonEngine) {
+    try {
+      horizonEngine = new window.HorizonEngine();
+    } catch (err) {
+      console.error('No s’ha pogut inicialitzar HorizonEngine:', err);
+    }
+  }
+
   initImageModal();
   render();
 
