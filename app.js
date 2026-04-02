@@ -645,12 +645,24 @@ const response = await fetch(API_BASE, {
   redirect: 'follow'
 });
 
-    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+const rawText = await response.text();
+let result = {};
 
-    const result = await response.json().catch(() => ({}));
-    alert(JSON.stringify(result, null, 2));
-console.log(result);
-    if (result.error) throw new Error(result.error);
+try {
+  result = rawText ? JSON.parse(rawText) : {};
+} catch {
+  result = { raw: rawText };
+}
+
+console.log('HTTP status:', response.status);
+console.log('Resposta servidor:', result);
+
+if (!response.ok) {
+  throw new Error(result.error || result.raw || `HTTP ${response.status}`);
+}
+
+alert(JSON.stringify(result, null, 2));
+if (result.error) throw new Error(result.error);r);
 
     record.status = 'enviat';
     if (!forceResend) {
