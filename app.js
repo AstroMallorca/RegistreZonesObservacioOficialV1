@@ -284,7 +284,57 @@ refs.photoInput.addEventListener('change', async e => {
 });
 
 refs.documentInput.addEventListener('change', async e => {
-  const file = e.target.files[0];
+  const files = [...e.target.files];
+  if (!files.length) return;
+
+  try {
+    for (const file of files) {
+      let src;
+      let mime = file.type;
+      let name = file.name;
+
+      if (isImageMime(file.type)) {
+        src = await fileToCompressedJpegDataUrl(file, 1600, 0.72);
+        mime = 'image/jpeg';
+        name = (file.name || 'document.jpg').replace(/\.[^.]+$/, '.jpg');
+      } else {
+        src = await fileToDataUrl(file);
+      }
+
+      const doc = {
+        id: crypto.randomUUID(),
+        name,
+        mime,
+        src,
+        createdAt: new Date().toISOString(),
+        approxBytes: estimateBase64SizeBytes(src)
+      };
+
+      record.documents.push(doc);
+    }
+
+    markModified(record);
+
+    try {
+      upsertRecord(record);
+    } catch (err) {
+      console.error('Error guardant documents:', err);
+      alert('Un dels documents és massa gros per guardar-lo així al dispositiu.');
+      renderDocument(refs.documentBox, record);
+      renderSummary(refs.summaryBox, record);
+      e.target.value = '';
+      return;
+    }
+
+    renderDocument(refs.documentBox, record);
+    renderSummary(refs.summaryBox, record);
+  } catch (err) {
+    console.error('Error processant documents:', err);
+    alert('No s’han pogut afegir els documents.');
+  }
+
+  e.target.value = '';
+});
   if (!file) return;
 
   try {
@@ -503,61 +553,61 @@ function renderPhotos(container, record) {
     container.appendChild(div);
   });
 }
-
 function renderDocument(container, record) {
   container.className = 'media-list';
 
-  if (!record.document) {
+  if (!Array.isArray(record.documents) || !record.documents.length) {
     container.classList.add('empty');
     container.textContent = 'No hi ha cap document adjunt.';
     return;
   }
 
   container.innerHTML = '';
-  const doc = record.document;
 
-  const div = document.createElement('div');
-  div.className = 'record-card';
+  record.documents.forEach(doc => {
+    const div = document.createElement('div');
+    div.className = 'record-card';
 
-  let previewHtml = '';
-  if (isImageMime(doc.mime)) {
-    previewHtml = `
-      <div style="margin:0 0 10px;">
-        <img
-          src="${doc.src}"
-          alt="${escapeHtml(doc.name)}"
-          style="display:block;width:100%;max-height:220px;object-fit:cover;border-radius:14px;background:#000;"
-        >
-      </div>
-    `;
-  }
-
-  div.innerHTML = `
-    ${previewHtml}
-    <h3>${escapeHtml(doc.name)}</h3>
-    <div class="tiny">${escapeHtml(doc.mime || 'document')}</div>
-  `;
-
-  const actions = document.createElement('div');
-  actions.className = 'footer-actions';
-
-  actions.appendChild(actionButton('Veure', 'ghost', () => {
-    openDocumentFile(doc);
-  }));
-
-  actions.appendChild(actionButton('Eliminar', 'ghost', () => {
-    record.document = null;
-    markModified(record);
-    upsertRecord(record);
-    renderDocument(container, record);
-    if (container.closest('.card')) {
-      const summaryBox = container.closest('.card').querySelector('#summaryBox');
-      if (summaryBox) renderSummary(summaryBox, record);
+    let previewHtml = '';
+    if (isImageMime(doc.mime)) {
+      previewHtml = `
+        <div style="margin:0 0 10px;">
+          <img
+            src="${doc.src}"
+            alt="${escapeHtml(doc.name)}"
+            style="display:block;width:100%;max-height:220px;object-fit:cover;border-radius:14px;background:#000;"
+          >
+        </div>
+      `;
     }
-  }));
 
-  div.appendChild(actions);
-  container.appendChild(div);
+    div.innerHTML = `
+      ${previewHtml}
+      <h3>${escapeHtml(doc.name)}</h3>
+      <div class="tiny">${escapeHtml(doc.mime || 'document')}</div>
+    `;
+
+    const actions = document.createElement('div');
+    actions.className = 'footer-actions';
+
+    actions.appendChild(actionButton('Veure', 'ghost', () => {
+      openDocumentFile(doc);
+    }));
+
+    actions.appendChild(actionButton('Eliminar', 'ghost', () => {
+      record.documents = record.documents.filter(d => d.id !== doc.id);
+      markModified(record);
+      upsertRecord(record);
+      renderDocument(container, record);
+      if (container.closest('.card')) {
+        const summaryBox = container.closest('.card').querySelector('#summaryBox');
+        if (summaryBox) renderSummary(summaryBox, record);
+      }
+    }));
+
+    div.appendChild(actions);
+    container.appendChild(div);
+  });
 }
 
 function renderSummary(container, record) {
@@ -574,7 +624,7 @@ function renderSummary(container, record) {
       <div class="summary-item"><strong>Aparcament</strong>${escapeHtml(record.data.parking || '—')}</div>
       <div class="summary-item"><strong>Accessos</strong>${escapeHtml(record.data.access || '—')}</div>
       <div class="summary-item"><strong>Fotos</strong>${record.photos.length}</div>
-      <div class="summary-item"><strong>Document</strong>${record.document ? escapeHtml(record.document.name) : 'No'}</div>
+      <div class="summary-item"><strong>Documents</strong>${Array.isArray(record.documents) ? record.documents.length : 0}</div>
       <div class="summary-item"><strong>Estat</strong>${record.status}</div>
       <div class="summary-item"><strong>Versió</strong>v${record.version}</div>
     </div>
