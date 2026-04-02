@@ -103,9 +103,9 @@ function renderHome() {
     render();
   }));
   node.getElementById('btn-sync-pending').addEventListener('click', syncPending);
-  node.getElementById('btn-help').addEventListener('click', () => {
-    alert('Aquesta versió deixa entrar a qualsevol secció en qualsevol moment. L’hora objectiu i el compte enrera es calculen automàticament quan hi ha data i coordenades.');
-  });
+node.getElementById('btn-help').addEventListener('click', () => {
+  showHelpModal();
+});
   app.appendChild(node);
 }
 
@@ -231,6 +231,102 @@ function showSendingOverlay(message = 'Enviant dades…') {
 function hideSendingOverlay() {
   const overlay = document.getElementById('sendingOverlay');
   if (overlay) overlay.style.display = 'none';
+  document.body.style.overflow = '';
+}
+function showHelpModal() {
+  let modal = document.getElementById('helpModal');
+
+  if (!modal) {
+    modal = document.createElement('div');
+    modal.id = 'helpModal';
+    modal.style.position = 'fixed';
+    modal.style.inset = '0';
+    modal.style.zIndex = '30000';
+    modal.style.background = 'rgba(2,8,18,0.85)';
+    modal.style.backdropFilter = 'blur(6px)';
+    modal.style.display = 'flex';
+    modal.style.alignItems = 'center';
+    modal.style.justifyContent = 'center';
+    modal.style.padding = '16px';
+
+    modal.innerHTML = `
+      <div style="
+        width:min(900px,100%);
+        max-height:90vh;
+        overflow:auto;
+        background:rgba(12,25,43,.98);
+        border:1px solid rgba(255,255,255,.12);
+        border-radius:22px;
+        padding:22px 18px;
+        color:#edf4ff;
+        box-shadow:0 20px 50px rgba(0,0,0,.35);
+      ">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+          <h2 style="margin:0;font-size:1.2rem;">Manual d’ús · Registre ZOO</h2>
+          <button id="helpClose" style="
+            background:none;
+            border:none;
+            color:#fff;
+            font-size:1.2rem;
+            cursor:pointer;
+          ">✕</button>
+        </div>
+
+        <div style="font-size:.95rem;line-height:1.5;color:#cfe3ff;">
+        
+<h3>🌍 Què és aquesta app?</h3>
+<p>Aquesta aplicació serveix per registrar zones candidates d’observació (ZOO) per a l’eclipsi.</p>
+
+<h3>🚀 Com començar</h3>
+<p>Entra a “Registrar ZOO” per crear un nou registre.</p>
+
+<h3>🧭 Funcionament</h3>
+<p>L’app guarda automàticament mentre escrius. No cal guardar manualment.</p>
+
+<h3>📝 Dades</h3>
+<p>Introdueix informació del lloc i captura la ubicació amb GPS.</p>
+
+<h3>⏱️ Hora objectiu</h3>
+<p>Es calcula automàticament segons la posició del Sol.</p>
+
+<h3>👁️ Visibilitat</h3>
+<p>Indica si el lloc és apte i descriu condicions.</p>
+
+<h3>📸 Fotos</h3>
+<p>Pots afegir múltiples fotos del lloc.</p>
+
+<h3>📄 Documents</h3>
+<p>Pots adjuntar PDFs o imatges.</p>
+
+<h3>📤 Enviar</h3>
+<p>En enviar, es guarden dades, fotos i documents al sistema central.</p>
+
+<h3>⚠️ Important</h3>
+<p>Si no introdueixes cap dada, el registre no es guarda.</p>
+
+<h3>🛰️ Objectiu</h3>
+<p>Crear un mapa de zones òptimes d’observació.</p>
+
+        </div>
+      </div>
+    `;
+
+    document.body.appendChild(modal);
+
+    modal.querySelector('#helpClose').onclick = closeHelpModal;
+
+    modal.addEventListener('click', (e) => {
+      if (e.target === modal) closeHelpModal();
+    });
+  }
+
+  modal.style.display = 'flex';
+  document.body.style.overflow = 'hidden';
+}
+
+function closeHelpModal() {
+  const modal = document.getElementById('helpModal');
+  if (modal) modal.style.display = 'none';
   document.body.style.overflow = '';
 }
 function renderEditor(record) {
