@@ -1,5 +1,6 @@
 const STORAGE_KEY = 'zooRecords_v2';
 const API_BASE = 'https://square-feather-3951.astromca.workers.dev';
+const TZ = 'Europe/Madrid';
 const app = document.getElementById('app');
 let currentView = 'home';
 let currentStep = 'dades';
