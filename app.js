@@ -30,7 +30,7 @@ const emptyRecord = () => ({
     notes: ''
   },
   photos: [],
-  document: null
+  documents: []
 });
 
 function migrateRecords(records) {
@@ -42,6 +42,7 @@ function migrateRecords(records) {
       ...(r.data || {})
     },
     photos: Array.isArray(r.photos) ? r.photos : [],
+    documents: Array.isArray(r.documents) ? r.documents : (r.document ? [r.document] : []),
     sentVersions: Array.isArray(r.sentVersions) ? r.sentVersions : [],
     version: r.version || 1,
     status: r.status || 'esborrany'
