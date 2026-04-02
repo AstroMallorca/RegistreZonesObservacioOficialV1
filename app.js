@@ -250,12 +250,18 @@ function renderEditor(record) {
   node.querySelector('#editor-title').textContent = record.data.placeName || 'Registrar ZOO';
   node.querySelector('#editor-meta').textContent = `${record.status} · v${record.version}`;
 
-  node.querySelector('#editor-back').addEventListener('click', (e) => {
-    e.preventDefault();
-    currentView = 'home';
-    editingId = null;
-    render();
-  });
+node.querySelector('#editor-back').addEventListener('click', (e) => {
+  e.preventDefault();
+
+  // si està buit, eliminar registre
+  if (isRecordEmpty(record)) {
+    deleteRecord(record.id);
+  }
+
+  currentView = 'home';
+  editingId = null;
+  render();
+});
 
   fillForm(refs, record);
   activateChoiceButtons(node, record);
@@ -458,7 +464,18 @@ function saveFormToRecord(refs, record, opts = {}) {
 function markModified(record) {
   if (record.status === 'enviat') record.status = 'modificat';
 }
+function isRecordEmpty(record) {
+  if (!record || !record.data) return true;
 
+  const fields = Object.values(record.data).map(v => String(v || '').trim());
+
+  const hasText = fields.some(v => v !== '' && v !== '2026-04-29'); // ignoram valor per defecte
+
+  const hasPhotos = Array.isArray(record.photos) && record.photos.length > 0;
+  const hasDocs = Array.isArray(record.documents) && record.documents.length > 0;
+
+  return !(hasText || hasPhotos || hasDocs);
+}
 function activateChoiceButtons(node, record) {
   node.querySelectorAll('.choice-group').forEach(group => {
     const field = group.dataset.field;
